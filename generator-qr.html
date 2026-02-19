@@ -1,0 +1,873 @@
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Generator QR (A4, strony po 12) + logo RCS + import CSV</title>
+    <style>
+        :root {
+            --qr-cm: 1.6;
+            --accent: #2196F3;
+            --gap-v: 0.5mm;
+            --page-pad: 3mm;
+        }
+
+        body {
+            font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+            max-width: 1200px;
+            margin: 24px auto;
+            padding: 0 16px;
+            background: #f5f5f5;
+            color: #222;
+        }
+
+        .container {
+            background: #fff;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.08);
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+            gap: 20px;
+        }
+
+        .headerLeft {
+            flex: 1;
+        }
+
+        h1 {
+            margin: 0 0 6px;
+            font-size: 22px;
+        }
+
+        .muted {
+            color: #666;
+            font-size: 14px;
+            margin: 0;
+        }
+
+        .langSwitch {
+            display: flex;
+            gap: 6px;
+            background: #f0f0f0;
+            padding: 4px;
+            border-radius: 8px;
+        }
+
+        .langBtn {
+            padding: 8px 16px;
+            border: 0;
+            background: transparent;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+            color: #666;
+            transition: all 0.2s;
+        }
+
+        .langBtn.active {
+            background: var(--accent);
+            color: white;
+        }
+
+        .langBtn:hover:not(.active) {
+            background: #e0e0e0;
+        }
+
+        .controls {
+            display: grid;
+            grid-template-columns: 1.4fr 1fr 0.8fr;
+            gap: 10px;
+            align-items: end;
+            margin: 16px 0 12px;
+        }
+
+        label {
+            display: block;
+            font-weight: 600;
+            color: #444;
+            margin-bottom: 6px;
+            font-size: 14px;
+        }
+
+        input[type="text"],
+        input[type="number"],
+        textarea,
+        input[type="file"] {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 10px 12px;
+            font-size: 16px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            outline: none;
+            font-family: inherit;
+            background: #fff;
+        }
+
+        textarea {
+            resize: vertical;
+            min-height: 60px;
+        }
+
+        input:focus,
+        textarea:focus {
+            border-color: var(--accent);
+        }
+
+        .row2 {
+            display: grid;
+            grid-template-columns: 1.4fr 1fr 0.8fr;
+            gap: 10px;
+            align-items: end;
+            margin: 0 0 12px;
+        }
+
+        .btnrow {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            margin: 10px 0 0;
+        }
+
+        button:not(.langBtn) {
+            border: 0;
+            border-radius: 8px;
+            padding: 10px 14px;
+            font-size: 15px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .primary {
+            background: #4CAF50;
+            color: #fff;
+        }
+
+        .primary:hover {
+            background: #45a049;
+        }
+
+        .secondary {
+            background: #eee;
+        }
+
+        .secondary:hover {
+            background: #e2e2e2;
+        }
+
+        .danger {
+            background: #ffebee;
+            color: #b71c1c;
+        }
+
+        .danger:hover {
+            background: #ffd9dd;
+        }
+
+        .status {
+            margin-top: 10px;
+            font-size: 14px;
+            color: #444;
+            line-height: 1.4;
+        }
+
+        .status strong {
+            color: #111;
+        }
+
+        .sheetWrap {
+            margin-top: 18px;
+            padding: 16px;
+            background: #fafafa;
+            border-radius: 12px;
+            border: 1px solid #eee;
+        }
+
+        .sheetTitle {
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            gap: 10px;
+            margin-bottom: 10px;
+        }
+
+        .sheetTitle .hint {
+            color: #666;
+            font-size: 13px;
+        }
+
+        .a4 {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 0 auto 2px;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.12);
+            border-radius: 10px;
+            padding: var(--page-pad);
+            box-sizing: border-box;
+            overflow: hidden;
+            position: relative;
+        }
+
+        .pageHeader {
+            font-size: 9pt;
+            color: #555;
+            display: flex;
+            justify-content: space-between;
+            align-items: baseline;
+            margin: 0 0 2mm;
+        }
+
+        .pageHeader .title {
+            font-weight: 800;
+            color: #222;
+        }
+
+        .grid {
+            display: flex;
+            flex-direction: column;
+            gap: var(--gap-v);
+            align-items: stretch;
+        }
+
+        .cell {
+            width: 100%;
+            max-width: 100%;
+            border: none;
+            box-sizing: border-box;
+            display: grid;
+            grid-template-columns: auto 1fr;
+            gap: 2mm;
+            align-items: center;
+            background: white;
+            padding: 1.5mm;
+            border-radius: 2px;
+        }
+
+        .cellLeft {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 1.5mm;
+        }
+
+        .qrWrapper {
+            width: calc(var(--qr-cm) * 1cm);
+            height: calc(var(--qr-cm) * 1cm);
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: white;
+            padding: 0;
+            border: none;
+            border-radius: 0;
+            overflow: hidden;
+        }
+
+        .qrHost {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .qrWrapper canvas,
+        .qrWrapper img {
+            width: 100% !important;
+            height: 100% !important;
+            display: block;
+            image-rendering: pixelated;
+        }
+
+        .logoOverlay {
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            width: 24%;
+            height: 24%;
+            background: #fff;
+            border: 1px solid #333;
+            border-radius: 2px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 900;
+            color: #222;
+            line-height: 1;
+            letter-spacing: 0.4px;
+            font-size: calc(var(--qr-cm) * 0.16cm);
+            pointer-events: none;
+            box-sizing: border-box;
+        }
+
+        .cellRight {
+            display: flex;
+            flex-direction: column;
+            gap: 0.8mm;
+            min-width: 0;
+        }
+
+        .cellCode {
+            font-size: 9pt;
+            font-weight: 900;
+            color: #222;
+            word-break: break-word;
+        }
+
+        .cellDesc {
+            font-size: 8pt;
+            color: #555;
+            line-height: 1.2;
+            padding: 1mm 1.2mm;
+            background: transparent;
+            border-left: none;
+            border-radius: 0;
+            word-break: break-word;
+            min-height: 0;
+        }
+
+        .helper {
+            font-size: 13px;
+            color: #555;
+            margin-top: 8px;
+            line-height: 1.4;
+        }
+
+        .helper code {
+            background: #f1f1f1;
+            padding: 0 6px;
+            border-radius: 6px;
+        }
+
+        .fileRow {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 6px;
+            align-items: end;
+        }
+
+        .mini {
+            font-size: 13px;
+            color: #666;
+            margin: 6px 0 0;
+        }
+
+        @media screen {
+            .a4 {
+                min-height: auto;
+            }
+        }
+
+        @media print {
+            body {
+                background: #fff;
+                margin: 0;
+                padding: 0;
+            }
+
+            .container {
+                box-shadow: none;
+                border-radius: 0;
+                padding: 0;
+            }
+
+            .no-print {
+                display: none !important;
+            }
+
+            .sheetWrap {
+                padding: 0;
+                border: 0;
+                background: transparent;
+            }
+
+            .a4 {
+                box-shadow: none;
+                border-radius: 0;
+                margin: 0;
+                min-height: 297mm;
+                page-break-after: always;
+            }
+
+            .a4:last-child {
+                page-break-after: auto;
+            }
+
+            .cell {
+                border: none;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <div class="no-print">
+            <div class="header">
+                <div class="headerLeft">
+                    <h1 data-i18n="title">Generator kodów QR (A4, strony po 12) + logo RCS + import CSV</h1>
+                    <p class="muted" data-i18n="subtitle">
+                        Import z CSV dzieli automatycznie na strony: <strong>12 kodów na stronę</strong>. Logo jest
+                        nakładane jako element w centrum QR.
+                    </p>
+                </div>
+                <div class="langSwitch">
+                    <button class="langBtn active" data-lang="pl">PL</button>
+                    <button class="langBtn" data-lang="en">EN</button>
+                </div>
+            </div>
+
+            <div class="controls">
+                <div>
+                    <label for="textInput" data-i18n="labelText">Tekst / numer do zakodowania</label>
+                    <input id="textInput" type="text" data-i18n-placeholder="placeholderText"
+                        placeholder="np. RCS041952/D" value="RCS041952/D" />
+                </div>
+                <div>
+                    <label for="logoText" data-i18n="labelLogo">Logo (tekst w środku)</label>
+                    <input id="logoText" type="text" value="RCS" />
+                </div>
+                <div>
+                    <label for="sizeCm" data-i18n="labelSize">Rozmiar QR (cm)</label>
+                    <input id="sizeCm" type="number" value="1.6" min="0.8" max="6" step="0.1" />
+                </div>
+            </div>
+
+            <div class="row2">
+                <div>
+                    <label for="descInput" data-i18n="labelDesc">Opis (opcjonalnie)</label>
+                    <textarea id="descInput" data-i18n-placeholder="placeholderDesc"
+                        placeholder="np. Magazyn A, Regał 3, Półka 2"></textarea>
+                </div>
+                <div>
+                    <label for="gapV" data-i18n="labelGap">Odstęp pionowy między etykietami (mm)</label>
+                    <input id="gapV" type="number" value="0.5" min="0" max="20" step="0.5" />
+                    <div class="mini" data-i18n="hintGap">Dotyczy odstępu między kolejnymi pozycjami na stronie.</div>
+                </div>
+                <div>
+                    <label for="pagePad" data-i18n="labelMargin">Margines strony A4 (mm)</label>
+                    <input id="pagePad" type="number" value="3" min="0" max="15" step="0.5" />
+                    <div class="mini" data-i18n="hintMargin">Zwiększ, jeśli drukarka ucina.</div>
+                </div>
+            </div>
+
+            <div class="fileRow">
+                <div>
+                    <label for="csvFile" data-i18n="labelCsv">Import CSV z Excela</label>
+                    <input id="csvFile" type="file" accept=".csv,text/csv" />
+                    <div class="helper" data-i18n="helperCsv">
+                        Nagłówki: <code>kod</code>, <code>opis</code> (opis opcjonalny).<br />
+                        Albo 2 kolumny bez nagłówków (A=kod, B=opis). Separator: przecinek lub średnik.
+                    </div>
+                </div>
+                <div>
+                    <label data-i18n="labelActions">Akcje</label>
+                    <div class="btnrow" style="margin:0;">
+                        <button class="primary" id="addBtn" data-i18n="btnAdd">Dodaj do listy</button>
+                        <button class="secondary" id="printBtn" data-i18n="btnPrint">Drukuj</button>
+                        <button class="danger" id="clearBtn" data-i18n="btnClear">Wyczyść wszystko</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="status" id="status"></div>
+        </div>
+
+        <div class="sheetWrap">
+            <div class="sheetTitle no-print">
+                <strong data-i18n="previewTitle">Podgląd wydruku</strong>
+                <span class="hint" data-i18n="previewHint">Wydruk: ustaw „Skala: 100%" / „Rzeczywisty rozmiar".</span>
+            </div>
+            <div id="pages"></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script>
+        const PRINT_DPI = 300;
+        const PER_PAGE = 12;
+
+        // Tłumaczenia
+        const translations = {
+            pl: {
+                title: 'Generator kodów QR (A4, strony po 12) + logo RCS + import CSV',
+                subtitle: 'Import z CSV dzieli automatycznie na strony: <strong>12 kodów na stronę</strong>. Logo jest nakładane jako element w centrum QR.',
+                labelText: 'Tekst / numer do zakodowania',
+                placeholderText: 'np. RCS041952/D',
+                labelLogo: 'Logo (tekst w środku)',
+                labelSize: 'Rozmiar QR (cm)',
+                labelDesc: 'Opis (opcjonalnie)',
+                placeholderDesc: 'np. Magazyn A, Regał 3, Półka 2',
+                labelGap: 'Odstęp pionowy między etykietami (mm)',
+                hintGap: 'Dotyczy odstępu między kolejnymi pozycjami na stronie.',
+                labelMargin: 'Margines strony A4 (mm)',
+                hintMargin: 'Zwiększ, jeśli drukarka ucina.',
+                labelCsv: 'Import CSV z Excela',
+                helperCsv: 'Nagłówki: <code>kod</code>, <code>opis</code> (opis opcjonalny).<br/>Albo 2 kolumny bez nagłówków (A=kod, B=opis). Separator: przecinek lub średnik.',
+                labelActions: 'Akcje',
+                btnAdd: 'Dodaj do listy',
+                btnPrint: 'Drukuj',
+                btnClear: 'Wyczyść wszystko',
+                previewTitle: 'Podgląd wydruku',
+                previewHint: 'Wydruk: ustaw „Skala: 100%" / „Rzeczywisty rozmiar".',
+                pageHeader: 'Etykiety QR',
+                pageOf: 'Strona',
+                noDesc: 'Brak opisu',
+                statusItems: 'Pozycji',
+                statusPages: 'Stron A4',
+                statusPer: 'po',
+                statusImported: 'Zaimportowano',
+                statusEnterText: 'Wpisz tekst/numer przed dodaniem.',
+                statusNoData: 'Nie znaleziono danych w pliku CSV.'
+            },
+            en: {
+                title: 'QR Code Generator (A4, 12 per page) + RCS logo + CSV import',
+                subtitle: 'CSV import automatically divides into pages: <strong>12 codes per page</strong>. Logo is overlaid in the center of QR.',
+                labelText: 'Text / number to encode',
+                placeholderText: 'e.g. RCS041952/D',
+                labelLogo: 'Logo (text in center)',
+                labelSize: 'QR size (cm)',
+                labelDesc: 'Description (optional)',
+                placeholderDesc: 'e.g. Warehouse A, Rack 3, Shelf 2',
+                labelGap: 'Vertical gap between labels (mm)',
+                hintGap: 'Gap between items on the page.',
+                labelMargin: 'A4 page margin (mm)',
+                hintMargin: 'Increase if printer cuts off.',
+                labelCsv: 'Import CSV from Excel',
+                helperCsv: 'Headers: <code>kod</code>, <code>opis</code> (description optional).<br/>Or 2 columns without headers (A=code, B=description). Separator: comma or semicolon.',
+                labelActions: 'Actions',
+                btnAdd: 'Add to list',
+                btnPrint: 'Print',
+                btnClear: 'Clear all',
+                previewTitle: 'Print preview',
+                previewHint: 'Print: set "Scale: 100%" / "Actual size".',
+                pageHeader: 'QR Labels',
+                pageOf: 'Page',
+                noDesc: 'No description',
+                statusItems: 'Items',
+                statusPages: 'Pages',
+                statusPer: 'per',
+                statusImported: 'Imported',
+                statusEnterText: 'Enter text/number before adding.',
+                statusNoData: 'No data found in CSV file.'
+            }
+        };
+
+        let currentLang = 'pl';
+
+        const textInput = document.getElementById('textInput');
+        const descInput = document.getElementById('descInput');
+        const logoTextInput = document.getElementById('logoText');
+        const sizeCmInput = document.getElementById('sizeCm');
+        const gapVInput = document.getElementById('gapV');
+        const pagePadInput = document.getElementById('pagePad');
+        const csvFileInput = document.getElementById('csvFile');
+        const addBtn = document.getElementById('addBtn');
+        const clearBtn = document.getElementById('clearBtn');
+        const printBtn = document.getElementById('printBtn');
+        const pagesHost = document.getElementById('pages');
+        const status = document.getElementById('status');
+
+        const items = [];
+
+        function t(key) {
+            return translations[currentLang][key] || key;
+        }
+
+        function updateLanguage() {
+            document.querySelectorAll('[data-i18n]').forEach(el => {
+                const key = el.getAttribute('data-i18n');
+                el.innerHTML = t(key);
+            });
+
+            document.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
+                const key = el.getAttribute('data-i18n-placeholder');
+                el.placeholder = t(key);
+            });
+
+            document.querySelectorAll('.langBtn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-lang') === currentLang);
+            });
+
+            rerenderAll();
+        }
+
+        document.querySelectorAll('.langBtn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentLang = btn.getAttribute('data-lang');
+                updateLanguage();
+            });
+        });
+
+        function cmToPxAtDpi(cm, dpi) {
+            return Math.round((cm / 2.54) * dpi);
+        }
+
+        function setCssVars() {
+            const sizeCm = Number(sizeCmInput.value) || 1.6;
+            const gapV = Number(gapVInput.value) || 0.5;
+            const pagePad = Number(pagePadInput.value) || 3;
+
+            document.documentElement.style.setProperty('--qr-cm', String(sizeCm));
+            document.documentElement.style.setProperty('--gap-v', String(gapV) + 'mm');
+            document.documentElement.style.setProperty('--page-pad', String(pagePad) + 'mm');
+        }
+
+        function renderStatus(extra = '') {
+            const pages = Math.ceil(items.length / PER_PAGE);
+            status.innerHTML = `<strong>${t('statusItems')}:</strong> ${items.length} | <strong>${t('statusPages')}:</strong> ${items.length ? pages : 0} (${t('statusPer')} ${PER_PAGE}/str.) ${extra}`;
+        }
+
+        function chunk(arr, size) {
+            const out = [];
+            for (let i = 0; i < arr.length; i += size) out.push(arr.slice(i, i + size));
+            return out;
+        }
+
+        function makeCell(text, desc, logoText, sizeCm) {
+            const cell = document.createElement('div');
+            cell.className = 'cell';
+
+            const left = document.createElement('div');
+            left.className = 'cellLeft';
+
+            const qrWrapper = document.createElement('div');
+            qrWrapper.className = 'qrWrapper';
+
+            const qrHost = document.createElement('div');
+            qrHost.className = 'qrHost';
+            qrWrapper.appendChild(qrHost);
+
+            const logo = document.createElement('div');
+            logo.className = 'logoOverlay';
+            logo.textContent = String(logoText || 'RCS').slice(0, 6);
+            qrWrapper.appendChild(logo);
+
+            left.appendChild(qrWrapper);
+            cell.appendChild(left);
+
+            const right = document.createElement('div');
+            right.className = 'cellRight';
+
+            const codeLabel = document.createElement('div');
+            codeLabel.className = 'cellCode';
+            codeLabel.textContent = text;
+            right.appendChild(codeLabel);
+
+            const descLabel = document.createElement('div');
+            descLabel.className = 'cellDesc';
+            descLabel.textContent = (desc && desc.trim()) ? desc.trim() : t('noDesc');
+            right.appendChild(descLabel);
+
+            cell.appendChild(right);
+
+            const px = cmToPxAtDpi(sizeCm, PRINT_DPI);
+
+            new QRCode(qrHost, {
+                text,
+                width: px,
+                height: px,
+                colorDark: '#000000',
+                colorLight: '#ffffff',
+                correctLevel: QRCode.CorrectLevel.H,
+            });
+
+            return cell;
+        }
+
+        function clearPages() {
+            pagesHost.innerHTML = '';
+        }
+
+        function rerenderAll() {
+            setCssVars();
+            clearPages();
+
+            const sizeCm = Number(sizeCmInput.value) || 1.6;
+            const logoText = (logoTextInput.value || '').trim() || 'RCS';
+
+            const pages = chunk(items, PER_PAGE);
+
+            pages.forEach((pageItems, pageIndex) => {
+                const page = document.createElement('div');
+                page.className = 'a4';
+
+                const header = document.createElement('div');
+                header.className = 'pageHeader';
+
+                const l = document.createElement('div');
+                l.className = 'title';
+                l.textContent = t('pageHeader');
+
+                const r = document.createElement('div');
+                r.textContent = `${t('pageOf')} ${pageIndex + 1}/${pages.length}`;
+
+                header.appendChild(l);
+                header.appendChild(r);
+                page.appendChild(header);
+
+                const grid = document.createElement('div');
+                grid.className = 'grid';
+
+                pageItems.forEach((item) => {
+                    grid.appendChild(makeCell(item.text, item.desc, logoText, sizeCm));
+                });
+
+                page.appendChild(grid);
+                pagesHost.appendChild(page);
+            });
+
+            renderStatus();
+        }
+
+        function addItem(text, desc) {
+            const t = (text || '').trim();
+            const d = (desc || '').trim();
+            if (!t) return false;
+            items.push({ text: t, desc: d });
+            return true;
+        }
+
+        function addManual() {
+            const ok = addItem(textInput.value, descInput.value);
+            if (!ok) {
+                renderStatus(' | ' + t('statusEnterText'));
+                return;
+            }
+            textInput.value = '';
+            descInput.value = '';
+            textInput.focus();
+            rerenderAll();
+        }
+
+        function parseCSV(text) {
+            const rows = [];
+            let row = [];
+            let cur = '';
+            let inQuotes = false;
+
+            for (let i = 0; i < text.length; i++) {
+                const ch = text[i];
+                const next = text[i + 1];
+
+                if (ch === '"') {
+                    if (inQuotes && next === '"') {
+                        cur += '"';
+                        i++;
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                    continue;
+                }
+
+                if (!inQuotes && (ch === ',' || ch === ';' || ch === '\t')) {
+                    row.push(cur);
+                    cur = '';
+                    continue;
+                }
+
+                if (!inQuotes && (ch === '\n' || ch === '\r')) {
+                    if (ch === '\r' && next === '\n') i++;
+                    row.push(cur);
+                    cur = '';
+                    const any = row.some(v => String(v).trim() !== '');
+                    if (any) rows.push(row);
+                    row = [];
+                    continue;
+                }
+
+                cur += ch;
+            }
+
+            row.push(cur);
+            const any = row.some(v => String(v).trim() !== '');
+            if (any) rows.push(row);
+
+            if (rows.length && rows[0].length) {
+                rows[0][0] = rows[0][0].replace(/^\uFEFF/, '');
+            }
+
+            return rows;
+        }
+
+        function importFromCSV(file) {
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = () => {
+                const content = String(reader.result || '');
+                const rows = parseCSV(content);
+                if (!rows.length) {
+                    renderStatus(' | ' + t('statusNoData'));
+                    return;
+                }
+
+                const h0 = (rows[0][0] || '').toString().trim().toLowerCase();
+                const h1 = (rows[0][1] || '').toString().trim().toLowerCase();
+                const hasHeaders = (h0 === 'kod' || h0 === 'code' || h0 === 'qr' || h0 === 'text' || h0 === 'wartość' || h0 === 'wartosc') &&
+                    (h1 === 'opis' || h1 === 'desc' || h1 === 'description' || h1 === 'uwagi' || h1 === 'note' || h1 === '' || h1 === undefined);
+
+                let start = 0;
+                let codeCol = 0;
+                let descCol = 1;
+
+                if (hasHeaders) {
+                    start = 1;
+                    const header = rows[0].map(x => (x || '').toString().trim().toLowerCase());
+                    const codeIdx = header.findIndex(x => ['kod', 'code', 'qr', 'text', 'wartosc', 'wartość'].includes(x));
+                    const descIdx = header.findIndex(x => ['opis', 'desc', 'description', 'uwagi', 'note', 'notes'].includes(x));
+                    if (codeIdx >= 0) codeCol = codeIdx;
+                    if (descIdx >= 0) descCol = descIdx;
+                }
+
+                let added = 0;
+                for (let i = start; i < rows.length; i++) {
+                    const r = rows[i];
+                    const code = (r[codeCol] ?? '').toString();
+                    const desc = (r[descCol] ?? '').toString();
+                    if (addItem(code, desc)) added++;
+                }
+
+                rerenderAll();
+                renderStatus(` | ${t('statusImported')}: ${added}`);
+                csvFileInput.value = '';
+            };
+            reader.readAsText(file, 'utf-8');
+        }
+
+        addBtn.addEventListener('click', addManual);
+        textInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') addManual();
+        });
+
+        clearBtn.addEventListener('click', () => {
+            items.length = 0;
+            rerenderAll();
+        });
+
+        printBtn.addEventListener('click', () => window.print());
+
+        ;[logoTextInput, sizeCmInput, gapVInput, pagePadInput].forEach(el => el.addEventListener('input', rerenderAll));
+
+        csvFileInput.addEventListener('change', (e) => {
+            const file = e.target.files && e.target.files[0];
+            importFromCSV(file);
+        });
+
+        addItem('RCS041952/D', currentLang === 'pl' ? 'Przykładowy opis magazynowy' : 'Example warehouse description');
+        rerenderAll();
+    </script>
+</body>
+
+</html>

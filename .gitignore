@@ -1,0 +1,22 @@
+# Python cache
+__pycache__/
+*.py[cod]
+
+# Virtualenv
+venv/
+.venv/
+
+# Logs
+*.log
+
+# OS/editor
+.DS_Store
+.vscode/
+.idea/
+
+# Local runtime files
+*.pid
+
+# Optional local database backups
+*.db-shm
+*.db-wal
