@@ -11,6 +11,7 @@ from database import db
 from domain import EnvelopeStatus, HolderType, CreationReason, Envelope
 import json
 from datetime import datetime
+import os
 
 # --- Kody błędów zgodne ze specyfikacją v2.0 ---
 ERROR_CODES = {
@@ -1318,7 +1319,8 @@ def generate_all_histories():
 
 if __name__ == '__main__':
     init_demo_envelopes()
-    print("\n🚀 Serwer API uruchomiony na http://localhost:5000")
+    port = int(os.environ.get('PORT', 5000))
+    print(f"\n🚀 Serwer API uruchomiony na http://localhost:{port}")
     print("📄 Otwórz prototype.html w przeglądarce")
     print("   (upewnij się, że serwer działa w tle)\n")
-    app.run(host='0.0.0.0', debug=True, use_reloader=False, port=5000)
+    app.run(host='0.0.0.0', debug=True, use_reloader=False, port=port)

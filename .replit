@@ -1,0 +1,5 @@
+entrypoint = "run_replit.sh"
+run = "bash run_replit.sh"
+
+[env]
+PYTHONUNBUFFERED = "1"
