@@ -172,11 +172,70 @@
 
             #screen-warehouse .warehouse-search-pane {
                 border-bottom: 1px solid #333;
-                min-height: 42vh;
+                min-height: auto;
+                position: relative;
+                overflow: visible;
+                z-index: 30;
             }
 
             #screen-warehouse .warehouse-ops-pane {
-                min-height: 58vh;
+                min-height: 48vh;
+                position: relative;
+                z-index: 10;
+            }
+
+            #screen-warehouse #search-results {
+                flex: none !important;
+                min-height: 24px;
+                max-height: 44px;
+                overflow: hidden !important;
+                position: relative;
+                z-index: 80;
+                transition: max-height 0.18s ease;
+            }
+
+            #screen-warehouse #search-results.search-results-active {
+                max-height: 260px;
+                overflow-y: auto !important;
+                border: 1px solid #333;
+                border-radius: 8px;
+                background: #141414;
+                box-shadow: 0 12px 24px rgba(0, 0, 0, 0.45);
+            }
+
+            #screen-warehouse #search-results p {
+                padding: 4px !important;
+                margin: 0 !important;
+                font-size: 0.92rem !important;
+            }
+
+            #screen-warehouse #warehouse-login-view {
+                justify-content: flex-start;
+                padding-top: 22px;
+            }
+
+            #screen-warehouse #warehouse-login-view h2 {
+                font-size: 1.55rem !important;
+                margin-bottom: 14px !important;
+            }
+
+            #screen-warehouse #warehouse-login-view #warehouse-pin-input {
+                width: 230px !important;
+                font-size: 2.3rem !important;
+            }
+
+            #screen-warehouse #warehouse-login-view .btn {
+                width: 74px !important;
+                height: 74px !important;
+                font-size: 1.55rem !important;
+            }
+
+            #screen-warehouse #filter-shop-floor {
+                transform: scale(1.45) !important;
+            }
+
+            #screen-warehouse label[for="filter-shop-floor"] {
+                font-size: 1.02rem !important;
             }
 
             #warehouse-ops-view .warehouse-topbar {
@@ -241,18 +300,22 @@
                 padding: 14px;
             }
 
+            #warehouse-login-view h2 {
+                font-size: 1.35rem !important;
+            }
+
             #warehouse-login-view #warehouse-pin-input {
                 width: 100% !important;
-                max-width: 260px;
-                font-size: 1.6rem !important;
+                max-width: 300px;
+                font-size: 2rem !important;
             }
 
             #warehouse-login-view .btn {
                 width: 100% !important;
                 min-width: 0;
-                height: 52px !important;
+                height: 62px !important;
                 padding: 0 !important;
-                font-size: 1rem !important;
+                font-size: 1.25rem !important;
             }
         }
 
@@ -263,6 +326,10 @@
             flex: 1;
             gap: 30px;
             background: radial-gradient(circle at center, #2c2c2c 0%, #121212 100%);
+            justify-content: flex-start;
+            overflow-y: auto;
+            padding: 80px 20px 30px;
+            box-sizing: border-box;
         }
 
         .role-card {
@@ -709,9 +776,9 @@
         </div>
 
         <!-- HISTORY SEARCH SECTION -->
-        <div style="margin-top: 50px; width: 600px; max-width: 90%;">
+        <div style="margin-top: 25px; width: 600px; max-width: 90%;">
             <h2 style="color: var(--accent-blue); margin-bottom: 20px; font-size: 1.3rem; text-align: center;">
-                📜 HISTORIA KOPERTY
+                📜 ENVELOPE HISTORY
             </h2>
             <div style="background: #1e1e1e; padding: 20px; border-radius: 12px; border: 1px solid #333;">
                 <div style="margin-bottom: 15px;">
@@ -3723,11 +3790,13 @@
             const resultsContainer = document.getElementById('search-results');
 
             if (query.length < 2) {
+                resultsContainer.classList.remove('search-results-active');
                 resultsContainer.innerHTML = '<p style="color: #666; text-align: center; padding: 20px;">Wpisz min. 2 znaki...</p>';
                 return;
             }
 
             // Pokaż ładowanie
+            resultsContainer.classList.add('search-results-active');
             resultsContainer.innerHTML = '<p style="color: #888; text-align: center; padding: 20px;">🔍 Wyszukiwanie...</p>';
 
             // FILTROWANIE SHOP FLOOR
