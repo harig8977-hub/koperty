@@ -230,126 +230,43 @@ def issue_envelope_from_warehouse(envelope_id):
 @app.route('/api/envelopes/<path:envelope_id>/load', methods=['POST'])
 def load_envelope_to_machine(envelope_id):
     """
-    Ładuje kopertę na maszynę (Bind to Machine).
-    WYMAGA statusu SHOP_FLOOR (koperta musi być wydana z magazynu).
-    
-    Body JSON: { "machine": "BOOBST 1", "operator_id": "operator1" }
-    
-    Implementuje blokadę maszyny wg specyfikacji v2.0:
-    - Twarda blokada: koperta musi przejść przez magazyn
-    - Logowanie prób bypass do error_logs
+    Ładuje lub automatycznie transferuje kopertę na maszynę.
+    Body JSON: { "machine": "BOOBST 1", "operator_id": "BOOBST 1" }
     """
     data = request.get_json() or {}
     machine = data.get('machine', 'UNKNOWN')
-    operator_id = data.get('operator_id', 'UNKNOWN')
+    operator_id = data.get('operator_id') or machine
     
     result = db.bind_envelope_to_machine(envelope_id, machine, operator_id)
     
     if result.get("success"):
+        op = result.get("operation")
+        if op == "TRANSFER_AUTO":
+            message = f"Koperta {envelope_id} automatycznie przeniesiona: {result.get('from_machine')} -> {machine}"
+        elif op == "ALREADY_ON_MACHINE":
+            message = f"Koperta {envelope_id} jest już na maszynie {machine}"
+        else:
+            message = f"Koperta {envelope_id} załadowana na {machine}"
+
         return jsonify({
             "success": True,
-            "message": f"Koperta {envelope_id} załadowana na {machine}",
+            "message": message,
             "status": "W_PRODUKCJI",
             "machine": machine,
-            "operator": operator_id
+            "operator": operator_id,
+            "operation": op,
+            "from_machine": result.get("from_machine")
         })
     else:
         status_code = result.pop('status', 400)
         if 'error' not in result and 'error_code' in result:
              result['error'] = ERROR_CODES.get(result['error_code'], 'Błąd ładowania')
         return jsonify(result), status_code
-    
-    # Sprawdź czy koperta istnieje i pobierz pełne dane
-    cursor.execute("""
-        SELECT status, current_holder_id, last_operator_id, updated_at
-        FROM envelopes WHERE unique_key = ?
-    """, (envelope_id,))
-    row = cursor.fetchone()
-    
-    if not row:
-        conn.close()
-        log_error(envelope_id, 'ERR_NOT_FOUND', operator_id, machine)
-        return jsonify({
-            "error_code": "ERR_NOT_FOUND",
-            "error": ERROR_CODES['ERR_NOT_FOUND'],
-            "barcode": envelope_id
-        }), 404
-    
-    current_status = row['status']
-    current_holder = row['current_holder_id']
-    last_operator = row['last_operator_id']
-    updated_at = row['updated_at']
-    
-    # TWARDA BLOKADA 1: Koperta w magazynie (bypass attempt)
-    if current_status == 'MAGAZYN':
-        conn.close()
-        conflict_details = {
-            "attempted_machine": machine,
-            "current_status": current_status,
-            "message": "Próba załadowania koperty bez wydania z magazynu"
-        }
-        log_error(envelope_id, 'ERR_NOT_ISSUED', operator_id, machine, conflict_details)
-        return jsonify({
-            "error_code": "ERR_NOT_ISSUED",
-            "error": ERROR_CODES['ERR_NOT_ISSUED'],
-            "status": current_status,
-            "machine": None,
-            "action_required": "Idź do magazyniera"
-        }), 409
-    
-    # TWARDA BLOKADA 2: Koperta zajęta przez inną maszynę
-    if current_status == 'W_PRODUKCJI':
-        conn.close()
-        conflict_details = {
-            "attempted_machine": machine,
-            "current_machine": current_holder,
-            "last_operator": last_operator,
-            "last_updated": str(updated_at)
-        }
-        log_error(envelope_id, 'ERR_MACHINE_BUSY', operator_id, machine, conflict_details)
-        return jsonify({
-            "error_code": "ERR_MACHINE_BUSY",
-            "error": ERROR_CODES['ERR_MACHINE_BUSY'],
-            "status": current_status,
-            "machine": current_holder,
-            "operator": last_operator,
-            "time": str(updated_at),
-            "action_required": f"Uwolnij najpierw na maszynie {current_holder}"
-        }), 409
-    
-    # BLOKADA 3: Nieprawidłowy status
-    if current_status != 'SHOP_FLOOR':
-        conn.close()
-        log_error(envelope_id, 'ERR_INVALID_STATUS', operator_id, machine, 
-                  {"current_status": current_status})
-        return jsonify({
-            "error_code": "ERR_INVALID_STATUS",
-            "error": f"Nieprawidłowy status koperty: {current_status}",
-            "status": current_status,
-            "holder": current_holder
-        }), 409
-    
-    # SUKCES: Przypisz do maszyny
-    cursor.execute("""
-        UPDATE envelopes 
-        SET status = 'W_PRODUKCJI', 
-            current_holder_id = ?, 
-            current_holder_type = 'MACHINE',
-            warehouse_section = NULL,
-            last_operator_id = ?,
-            updated_at = CURRENT_TIMESTAMP
-        WHERE unique_key = ?
-    """, (machine, operator_id, envelope_id))
-    conn.commit()
-    conn.close()
-    
-    return jsonify({
-        "success": True,
-        "message": f"Koperta {envelope_id} załadowana na {machine}",
-        "status": "W_PRODUKCJI",
-        "machine": machine,
-        "operator": operator_id
-    })
+
+@app.route('/api/envelopes/<path:envelope_id>/transfer-auto', methods=['POST'])
+def transfer_envelope_auto(envelope_id):
+    """Alias dla automatycznego transferu/załadowania koperty na maszynę."""
+    return load_envelope_to_machine(envelope_id)
 
 @app.route('/api/envelopes/<path:envelope_id>', methods=['DELETE'])
 def delete_envelope(envelope_id):
@@ -1139,6 +1056,47 @@ def get_machine_status(machine_id):
             "data": None
         })
 
+@app.route('/api/machines', methods=['GET'])
+def get_machines():
+    """Lista maszyn operatora (aktywne lub wszystkie dla admina)."""
+    include_all = request.args.get('all', '0') == '1'
+    machines = db.get_all_machines_auth() if include_all else db.get_active_machines_auth()
+    return jsonify(machines)
+
+@app.route('/api/machines', methods=['POST'])
+def create_machine():
+    """Dodaje nową maszynę z PIN."""
+    data = request.get_json() or {}
+    machine_name = data.get('machine')
+    pin = data.get('pin')
+    result = db.create_machine_auth(machine_name, pin)
+    if result.get("success"):
+        return jsonify(result), 201
+    return jsonify(result), result.get("status", 500)
+
+@app.route('/api/machines/<int:machine_id>', methods=['PUT'])
+def update_machine(machine_id):
+    """Aktualizuje nazwę i/lub aktywność maszyny."""
+    data = request.get_json() or {}
+    result = db.update_machine_auth(
+        machine_id,
+        machine_name=data.get('machine'),
+        is_active=data.get('is_active')
+    )
+    if result.get("success"):
+        return jsonify(result)
+    return jsonify(result), result.get("status", 500)
+
+@app.route('/api/machines/<int:machine_id>/pin', methods=['PUT'])
+def update_machine_pin(machine_id):
+    """Zmienia PIN maszyny."""
+    data = request.get_json() or {}
+    new_pin = data.get('new_pin')
+    result = db.change_machine_pin(machine_id, new_pin)
+    if result.get("success"):
+        return jsonify(result)
+    return jsonify(result), result.get("status", 500)
+
 
 # ========================
 # ZARZĄDZANIE UŻYTKOWNIKAMI
@@ -1247,6 +1205,21 @@ def verify_user():
         return jsonify({"success": True, "user": user})
     else:
         return jsonify({"success": False, "error": "Nieprawidłowy PIN lub użytkownik nieaktywny"}), 401
+
+@app.route('/api/auth/machine-verify', methods=['POST'])
+def verify_machine():
+    """Weryfikuje PIN operatora dla konkretnej maszyny."""
+    data = request.get_json() or {}
+    machine_name = data.get('machine')
+    pin = data.get('pin')
+
+    if not machine_name or not pin:
+        return jsonify({"success": False, "error": "Wymagane pola: machine, pin"}), 400
+
+    result = db.verify_machine_auth(machine_name, pin)
+    if result.get("success"):
+        return jsonify({"success": True, "machine": result["machine"]})
+    return jsonify({"success": False, "error": result.get("error")}), result.get("status", 401)
 
 # ========================
 # ENDPOINTY HISTORII OBIEGU

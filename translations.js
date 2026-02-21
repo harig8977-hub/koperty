@@ -24,6 +24,7 @@ const TRANSLATIONS = {
         // Operations
         'btn_generator': '🖨️ GENERATOR QR',
         'btn_admin': '⚙️ PANEL ADMINA',
+        'btn_machines': '⚙️ MASZYNY',
         'btn_user': '👥 USER',
         'btn_logout': 'WYLOGUJ',
 
@@ -236,6 +237,13 @@ const TRANSLATIONS = {
         'no_envelopes_receive': '⚠️ Brak kopert do przyjęcia! Zeskanuj koperty przed zakończeniem.',
         'select_zone_first': '⚠️ WYBIERZ NAJPIERW STREFĘ MAGAZYNU (A-R)!',
         'camera_blocked': '⚠️ KAMERA ZABLOKOWANA PRZEZ PRZEGLĄDARKĘ!\n\nPrzeglądarki blokują kamerę na stronach nieszyfrowanych (HTTP).\nUżyj localhost lub HTTPS.',
+        'camera_secure_context_hint': 'Dla adresu LAN po HTTP kamera może być blokowana. Użyj HTTPS albo localhost/127.0.0.1.',
+        'camera_lib_missing': 'Brak biblioteki skanera (html5-qrcode). Sprawdź połączenie z internetem lub lokalny plik vendor.',
+        'camera_start_error': 'Błąd uruchomienia kamery.',
+        'camera_permission_denied': 'Brak uprawnień do kamery. Sprawdź ustawienia przeglądarki.',
+        'camera_not_found': 'Nie znaleziono kamery.',
+        'camera_in_use': 'Kamera jest zajęta przez inną aplikację.',
+        'camera_unknown_error': 'Nieznany błąd kamery.',
         'lib_init_error': 'Błąd inicjalizacji biblioteki: ',
         'go_to_op_panel': 'Przejdź do panelu operatora!',
         'confirm_delete_product_text': 'Czy na pewno chcesz usunąć produkt {0}?\n\nUwaga: Ta operacja jest nieodwracalna.',
@@ -277,6 +285,7 @@ const TRANSLATIONS = {
         // Operations
         'btn_generator': '🖨️ QR GENERATOR',
         'btn_admin': '⚙️ ADMIN PANEL',
+        'btn_machines': '⚙️ MACHINES',
         'btn_user': '👥 USER',
         'btn_logout': 'LOGOUT',
 
@@ -484,6 +493,13 @@ const TRANSLATIONS = {
         'no_envelopes_receive': '⚠️ No envelopes to receive! Scan envelopes before finishing.',
         'select_zone_first': '⚠️ SELECT WAREHOUSE ZONE (A-R) FIRST!',
         'camera_blocked': '⚠️ CAMERA BLOCKED BY BROWSER!\n\nBrowsers block camera on non-secure sites (HTTP).\nUse localhost or HTTPS.',
+        'camera_secure_context_hint': 'Camera may be blocked on LAN HTTP addresses. Use HTTPS or localhost/127.0.0.1.',
+        'camera_lib_missing': 'Scanner library (html5-qrcode) is missing. Check internet access or local vendor file.',
+        'camera_start_error': 'Camera start error.',
+        'camera_permission_denied': 'Camera permission denied. Check browser settings.',
+        'camera_not_found': 'No camera found.',
+        'camera_in_use': 'Camera is already in use by another application.',
+        'camera_unknown_error': 'Unknown camera error.',
         'lib_init_error': 'Library init error: ',
         'go_to_op_panel': 'Go to operator panel!',
         'confirm_delete_product_text': 'Are you sure you want to delete product {0}?\n\nCaution: This operation cannot be undone.',

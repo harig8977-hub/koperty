@@ -47,13 +47,14 @@ def get_envelope_circulation_history(rcs_id):
     for envelope in envelopes:
         envelope_id = envelope['unique_key']
         
-        # Pobierz zdarzenia dla tej koperty wraz z danymi użytkownika
+        # Pobierz zdarzenia dla tej koperty wraz z danymi użytkownika/maszyny
         cursor.execute("""
             SELECT e.id, e.envelope_key, e.user_id, e.from_status, e.to_status,
                    e.from_holder, e.to_holder, e.operation, e.timestamp, e.comment,
-                   u.full_name, u.role
+                   u.full_name, u.role, m.machine_name
             FROM events e
             LEFT JOIN users u ON e.user_id = u.username
+            LEFT JOIN machines_auth m ON e.user_id = m.machine_name
             WHERE e.envelope_key = ?
             ORDER BY e.timestamp ASC
         """, (envelope_id,))
@@ -134,8 +135,15 @@ def format_circulation_history_txt(rcs_id, history_data):
                 from_holder = event['from_holder'] or '---'
                 to_holder = event['to_holder'] or '---'
                 user_id = event['user_id'] or 'SYSTEM'
-                full_name = event['full_name'] or 'Nieznany'
-                role = event['role'] or '---'
+                if event['full_name']:
+                    full_name = event['full_name']
+                    role = event['role'] or '---'
+                elif event['machine_name']:
+                    full_name = f"Maszyna {event['machine_name']}"
+                    role = 'MACHINE'
+                else:
+                    full_name = user_id
+                    role = '---'
                 comment = event['comment'] or ''
                 
                 lines.append(f"  [{timestamp}] {operation}")

@@ -1,7 +1,21 @@
+import hashlib
+import secrets
 import sqlite3
 from typing import List, Dict, Optional, Any
 
 DB_NAME = "koperty_system.db"
+DEFAULT_OPERATOR_MACHINES = [
+    'PRINTER MAIN',
+    'PRINTER 2',
+    'VISON',
+    'ETERNA',
+    'CUTER',
+    'ST2',
+    'VERSOR',
+    'BOOBST 1',
+    'BOOBST 2',
+    'PALLETIZING'
+]
 
 class Database:
     def __init__(self, db_name=DB_NAME):
@@ -180,7 +194,23 @@ class Database:
             )
         ''')
 
-        # 9. Tabela LISTY WYSZUKIWANIA (Warehouse Search List)
+        # 9. Tabela PIN dla maszyn operatora
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS machines_auth (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                machine_name TEXT UNIQUE NOT NULL,
+                pin_hash TEXT NOT NULL,
+                pin_salt TEXT NOT NULL,
+                is_active INTEGER DEFAULT 1,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_machines_auth_active ON machines_auth(is_active)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_machines_auth_name ON machines_auth(machine_name)')
+
+        # 10. Tabela LISTY WYSZUKIWANIA (Warehouse Search List)
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS search_lists (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -198,6 +228,10 @@ class Database:
         
         # Seed domyślnych użytkowników
         self._seed_default_users(conn)
+        # Migracja: operatorzy nie są już logowani przez users
+        self._remove_operator_users(conn)
+        # Seed domyślnych maszyn operatora (PIN 1001+)
+        self._seed_default_machines(conn)
         
         conn.close()
 
@@ -676,7 +710,10 @@ class Database:
 
     def bind_envelope_to_machine(self, envelope_id: str, machine_id: str, user_id: str) -> Dict[str, Any]:
         """
-        Przypisuje kopertę do maszyny (SHOP_FLOOR -> W_PRODUKCJI).
+        Przypisuje kopertę do maszyny.
+        Obsługuje:
+        - SHOP_FLOOR -> W_PRODUKCJI (LOAD)
+        - W_PRODUKCJI(A) -> W_PRODUKCJI(B) (TRANSFER_AUTO)
         """
         conn = self.get_connection()
         cursor = conn.cursor()
@@ -702,9 +739,41 @@ class Database:
                 return {"success": False, "error_code": "ERR_NOT_ISSUED", "status": 409}
                 
             if current_status == 'W_PRODUKCJI':
-                conn.rollback()
-                self.log_error(envelope_id, 'ERR_MACHINE_BUSY', user_id, machine_id, {"holder": current_holder})
-                return {"success": False, "error_code": "ERR_MACHINE_BUSY", "status": 409, "holder": current_holder}
+                if str(current_holder) == str(machine_id):
+                    # Idempotentny przypadek - koperta już na tej maszynie.
+                    conn.commit()
+                    return {
+                        "success": True,
+                        "status": "W_PRODUKCJI",
+                        "operation": "ALREADY_ON_MACHINE",
+                        "from_machine": current_holder,
+                        "to_machine": machine_id
+                    }
+
+                # Automatyczny transfer między maszynami.
+                cursor.execute("""
+                    UPDATE envelopes 
+                    SET status = 'W_PRODUKCJI', 
+                        current_holder_id = ?, 
+                        current_holder_type = 'MACHINE',
+                        last_operator_id = ?,
+                        updated_at = CURRENT_TIMESTAMP
+                    WHERE unique_key = ?
+                """, (machine_id, user_id, envelope_id))
+
+                cursor.execute("""
+                    INSERT INTO events (envelope_key, user_id, from_status, to_status, from_holder, to_holder, operation)
+                    VALUES (?, ?, 'W_PRODUKCJI', 'W_PRODUKCJI', ?, ?, 'TRANSFER_AUTO')
+                """, (envelope_id, user_id, current_holder, machine_id))
+
+                conn.commit()
+                return {
+                    "success": True,
+                    "status": "W_PRODUKCJI",
+                    "operation": "TRANSFER_AUTO",
+                    "from_machine": current_holder,
+                    "to_machine": machine_id
+                }
                 
             if current_status != 'SHOP_FLOOR':
                 conn.rollback()
@@ -728,7 +797,13 @@ class Database:
             """, (envelope_id, user_id, current_status, current_holder, machine_id))
             
             conn.commit()
-            return {"success": True, "status": "W_PRODUKCJI"}
+            return {
+                "success": True,
+                "status": "W_PRODUKCJI",
+                "operation": "LOAD",
+                "from_machine": current_holder,
+                "to_machine": machine_id
+            }
             
         except Exception as e:
             conn.rollback()
@@ -869,30 +944,240 @@ class Database:
             conn.close()
 
     # ========================
+    # ZARZĄDZANIE MASZYNAMI (PIN OPERATORA)
+    # ========================
+
+    def _hash_pin(self, pin: str, salt_hex: str = None) -> tuple[str, str]:
+        """Zwraca (hash_hex, salt_hex) dla PIN."""
+        salt_hex = salt_hex or secrets.token_hex(16)
+        pin_hash = hashlib.pbkdf2_hmac(
+            'sha256',
+            pin.encode('utf-8'),
+            bytes.fromhex(salt_hex),
+            120000
+        ).hex()
+        return pin_hash, salt_hex
+
+    def _verify_pin_hash(self, pin: str, pin_hash: str, salt_hex: str) -> bool:
+        """Weryfikuje PIN względem hash + salt."""
+        candidate_hash, _ = self._hash_pin(pin, salt_hex)
+        return secrets.compare_digest(candidate_hash, pin_hash)
+
+    def _is_valid_pin(self, pin: str) -> bool:
+        return isinstance(pin, str) and pin.isdigit() and len(pin) == 4
+
+    def _seed_default_machines(self, conn):
+        """Uzupełnia domyślne maszyny operatora (PIN 1001+)."""
+        cursor = conn.cursor()
+        cursor.execute("SELECT machine_name FROM machines_auth")
+        existing = {row[0] for row in cursor.fetchall()}
+
+        inserted = 0
+        for idx, machine_name in enumerate(DEFAULT_OPERATOR_MACHINES, start=1):
+            if machine_name in existing:
+                continue
+
+            default_pin = f"{1000 + idx:04d}"
+            pin_hash, pin_salt = self._hash_pin(default_pin)
+            cursor.execute('''
+                INSERT INTO machines_auth (machine_name, pin_hash, pin_salt, is_active)
+                VALUES (?, ?, ?, 1)
+            ''', (machine_name, pin_hash, pin_salt))
+            inserted += 1
+
+        if inserted:
+            conn.commit()
+
+    def get_active_machines_auth(self) -> List[Dict[str, Any]]:
+        """Pobiera listę aktywnych maszyn operatora."""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, machine_name
+            FROM machines_auth
+            WHERE is_active = 1
+            ORDER BY machine_name
+        ''')
+        rows = cursor.fetchall()
+        conn.close()
+        return [{"id": row["id"], "machine": row["machine_name"]} for row in rows]
+
+    def get_all_machines_auth(self) -> List[Dict[str, Any]]:
+        """Pobiera wszystkie maszyny operatora (admin)."""
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, machine_name, is_active, created_at, updated_at
+            FROM machines_auth
+            ORDER BY machine_name
+        ''')
+        rows = cursor.fetchall()
+        conn.close()
+        return [{
+            "id": row["id"],
+            "machine": row["machine_name"],
+            "is_active": row["is_active"],
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"]
+        } for row in rows]
+
+    def verify_machine_auth(self, machine_name: str, pin: str) -> Dict[str, Any]:
+        """Weryfikuje PIN wybranej maszyny operatora."""
+        if not machine_name:
+            return {"success": False, "error": "Brak nazwy maszyny", "status": 400}
+        if not self._is_valid_pin(pin):
+            return {"success": False, "error": "PIN musi składać się z 4 cyfr", "status": 400}
+
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute('''
+            SELECT id, machine_name, pin_hash, pin_salt, is_active
+            FROM machines_auth
+            WHERE machine_name = ?
+            LIMIT 1
+        ''', (machine_name,))
+        row = cursor.fetchone()
+        conn.close()
+
+        if not row:
+            return {"success": False, "error": "Maszyna nie istnieje", "status": 404}
+        if not row["is_active"]:
+            return {"success": False, "error": "Maszyna jest nieaktywna", "status": 403}
+        if not self._verify_pin_hash(pin, row["pin_hash"], row["pin_salt"]):
+            return {"success": False, "error": "Nieprawidłowy PIN", "status": 401}
+
+        return {
+            "success": True,
+            "machine": {
+                "id": row["id"],
+                "machine": row["machine_name"],
+                "is_active": row["is_active"]
+            }
+        }
+
+    def create_machine_auth(self, machine_name: str, pin: str) -> Dict[str, Any]:
+        """Dodaje nową maszynę operatora."""
+        machine_name = (machine_name or "").strip()
+        if not machine_name:
+            return {"success": False, "error": "Nazwa maszyny jest wymagana", "status": 400}
+        if not self._is_valid_pin(pin):
+            return {"success": False, "error": "PIN musi składać się z 4 cyfr", "status": 400}
+
+        pin_hash, pin_salt = self._hash_pin(pin)
+        conn = self.get_connection()
+        cursor = conn.cursor()
+
+        try:
+            cursor.execute('''
+                INSERT INTO machines_auth (machine_name, pin_hash, pin_salt, is_active)
+                VALUES (?, ?, ?, 1)
+            ''', (machine_name, pin_hash, pin_salt))
+            conn.commit()
+            return {
+                "success": True,
+                "machine_id": cursor.lastrowid,
+                "machine": machine_name,
+                "status": 201
+            }
+        except sqlite3.IntegrityError:
+            return {"success": False, "error": "Maszyna o tej nazwie już istnieje", "status": 409}
+        except Exception as e:
+            return {"success": False, "error": str(e), "status": 500}
+        finally:
+            conn.close()
+
+    def update_machine_auth(self, machine_id: int, machine_name: str = None, is_active: int = None) -> Dict[str, Any]:
+        """Aktualizuje nazwę i/lub status aktywności maszyny operatora."""
+        updates = []
+        params = []
+
+        if machine_name is not None:
+            clean_name = machine_name.strip()
+            if not clean_name:
+                return {"success": False, "error": "Nazwa maszyny nie może być pusta", "status": 400}
+            updates.append("machine_name = ?")
+            params.append(clean_name)
+
+        if is_active is not None:
+            normalized = 1 if int(is_active) else 0
+            updates.append("is_active = ?")
+            params.append(normalized)
+
+        if not updates:
+            return {"success": False, "error": "Brak danych do aktualizacji", "status": 400}
+
+        updates.append("updated_at = CURRENT_TIMESTAMP")
+        params.append(machine_id)
+
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute(f"UPDATE machines_auth SET {', '.join(updates)} WHERE id = ?", params)
+            if cursor.rowcount == 0:
+                return {"success": False, "error": "Maszyna nie znaleziona", "status": 404}
+            conn.commit()
+            return {"success": True, "machine_id": machine_id}
+        except sqlite3.IntegrityError:
+            return {"success": False, "error": "Maszyna o tej nazwie już istnieje", "status": 409}
+        except Exception as e:
+            return {"success": False, "error": str(e), "status": 500}
+        finally:
+            conn.close()
+
+    def change_machine_pin(self, machine_id: int, new_pin: str) -> Dict[str, Any]:
+        """Zmienia PIN maszyny operatora."""
+        if not self._is_valid_pin(new_pin):
+            return {"success": False, "error": "PIN musi składać się z 4 cyfr", "status": 400}
+
+        pin_hash, pin_salt = self._hash_pin(new_pin)
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            cursor.execute('''
+                UPDATE machines_auth
+                SET pin_hash = ?, pin_salt = ?, updated_at = CURRENT_TIMESTAMP
+                WHERE id = ?
+            ''', (pin_hash, pin_salt, machine_id))
+            if cursor.rowcount == 0:
+                return {"success": False, "error": "Maszyna nie znaleziona", "status": 404}
+            conn.commit()
+            return {"success": True, "machine_id": machine_id}
+        except Exception as e:
+            return {"success": False, "error": str(e), "status": 500}
+        finally:
+            conn.close()
+
+    # ========================
     # ZARZĄDZANIE UŻYTKOWNIKAMI
     # ========================
-    
-    def _seed_default_users(self, conn):
-        """Tworzy domyślnych użytkowników jeśli tabela jest pusta."""
+
+    def _remove_operator_users(self, conn):
+        """Czyści operatorów z tabeli users po migracji na PIN maszyn."""
         cursor = conn.cursor()
-        
-        # Sprawdź czy są jakiekolwiek użytkownicy
-        cursor.execute("SELECT COUNT(*) as count FROM users")
-        count = cursor.fetchone()[0]
-        
-        if count == 0:
-            # Dodaj domyślnych użytkowników
-            default_users = [
-                ('admin', '9999', 'ADMIN', 'Administrator Systemu', None),
-                ('operator1', '1111', 'OPERATOR', 'Operator Testowy', 'A'),
-                ('magazynier1', '5555', 'WAREHOUSE', 'Magazynier Testowy', 'A'),
-            ]
-            
-            cursor.executemany('''
+        cursor.execute("DELETE FROM users WHERE role = 'OPERATOR'")
+        if cursor.rowcount:
+            conn.commit()
+
+    def _seed_default_users(self, conn):
+        """Tworzy domyślnych użytkowników magazynu/admin."""
+        cursor = conn.cursor()
+        default_users = [
+            ('admin', '9999', 'ADMIN', 'Administrator Systemu', None),
+            ('magazynier1', '5555', 'WAREHOUSE', 'Magazynier Testowy', 'A'),
+        ]
+
+        inserted = 0
+        for user in default_users:
+            cursor.execute("SELECT id FROM users WHERE username = ?", (user[0],))
+            if cursor.fetchone():
+                continue
+            cursor.execute('''
                 INSERT INTO users (username, pin, role, full_name, shift)
                 VALUES (?, ?, ?, ?, ?)
-            ''', default_users)
-            
+            ''', user)
+            inserted += 1
+
+        if inserted:
             conn.commit()
     
     def create_user(self, username: str, pin: str, role: str, full_name: str = None, shift: str = None) -> Dict[str, Any]:
@@ -905,9 +1190,9 @@ class Database:
             if not pin.isdigit() or len(pin) != 4:
                 return {"success": False, "error": "PIN musi składać się z 4 cyfr", "status": 400}
             
-            # Walidacja roli
-            if role not in ['OPERATOR', 'WAREHOUSE', 'ADMIN']:
-                return {"success": False, "error": "Nieprawidłowa rola", "status": 400}
+            # Walidacja roli (operatorzy zarządzani osobno przez machines_auth)
+            if role not in ['WAREHOUSE', 'ADMIN']:
+                return {"success": False, "error": "Dozwolone role: WAREHOUSE, ADMIN", "status": 400}
             
             cursor.execute('''
                 INSERT INTO users (username, pin, role, full_name, shift)
@@ -939,6 +1224,7 @@ class Database:
         cursor.execute('''
             SELECT id, username, pin, role, full_name, shift, created_at, is_active
             FROM users
+            WHERE role IN ('WAREHOUSE', 'ADMIN')
             ORDER BY role, username
         ''')
         
@@ -966,7 +1252,7 @@ class Database:
         cursor.execute('''
             SELECT id, username, pin, role, full_name, shift, created_at, is_active
             FROM users
-            WHERE id = ?
+            WHERE id = ? AND role IN ('WAREHOUSE', 'ADMIN')
         ''', (user_id,))
         
         row = cursor.fetchone()
@@ -1000,8 +1286,8 @@ class Database:
                 params.append(full_name)
             
             if role is not None:
-                if role not in ['OPERATOR', 'WAREHOUSE', 'ADMIN']:
-                    return {"success": False, "error": "Nieprawidłowa rola", "status": 400}
+                if role not in ['WAREHOUSE', 'ADMIN']:
+                    return {"success": False, "error": "Dozwolone role: WAREHOUSE, ADMIN", "status": 400}
                 updates.append("role = ?")
                 params.append(role)
             
@@ -1091,6 +1377,9 @@ class Database:
     
     def verify_user(self, pin: str, role: str = None) -> Optional[Dict[str, Any]]:
         """Weryfikuje użytkownika po PIN (i opcjonalnie roli)."""
+        if role == 'OPERATOR':
+            return None
+
         conn = self.get_connection()
         cursor = conn.cursor()
         
@@ -1105,7 +1394,7 @@ class Database:
             cursor.execute('''
                 SELECT id, username, pin, role, full_name, shift, is_active
                 FROM users
-                WHERE pin = ? AND is_active = 1
+                WHERE pin = ? AND role IN ('WAREHOUSE', 'ADMIN') AND is_active = 1
                 LIMIT 1
             ''', (pin,))
         

@@ -595,7 +595,16 @@
             transform: translateY(-1px);
         }
     </style>
-    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js" type="text/javascript"></script>
+    <script>
+        (function ensureHtml5Qrcode() {
+            if (typeof Html5Qrcode !== 'undefined') return;
+            const fallbackScript = document.createElement('script');
+            fallbackScript.src = 'vendor/html5-qrcode.min.js';
+            fallbackScript.type = 'text/javascript';
+            document.head.appendChild(fallbackScript);
+        })();
+    </script>
     <style>
         /* MODAL KAMERY */
         #scanner-modal {
@@ -672,7 +681,7 @@
     <!-- MODAL SKANERA (UKRYTY) -->
     <div id="scanner-modal" class="hidden">
         <div id="reader"></div>
-        <button class="close-scanner-btn" onclick="stopScanner()" data-i18n="close_camera">ZAMKNIJ KAMERĘ</button>
+        <button class="close-scanner-btn" onclick="closeScanner()" data-i18n="close_camera">ZAMKNIJ KAMERĘ</button>
     </div>
 
 
@@ -898,8 +907,8 @@
                             GENERATOR QR</button>
                         <button id="btn-admin-panel" class="hidden btn btn-orange" onclick="toggleAdminPanel()"
                             style="padding: 5px 15px; font-size: 0.8rem;" data-i18n="btn_admin">⚙️ PANEL ADMINA</button>
-                        <button id="btn-user-panel" class="hidden btn btn-blue" onclick="toggleUserPanel()"
-                            style="padding: 5px 15px; font-size: 0.8rem;" data-i18n="btn_user">👥 USER</button>
+                        <button id="btn-machine-panel" class="hidden btn btn-blue" onclick="toggleMachinePanel()"
+                            style="padding: 5px 15px; font-size: 0.8rem;" data-i18n="btn_machines">⚙️ MASZYNY</button>
                         <button onclick="logoutWarehouse()" class="btn btn-red"
                             style="padding: 5px 15px; font-size: 0.8rem;" data-i18n="btn_logout">WYLOGUJ</button>
                     </div>
@@ -1314,71 +1323,39 @@
                         </div>
                     </div>
 
-                    <!-- PANEL ZARZĄDZANIA UŻYTKOWNIKAMI (UKRYTY) -->
-                    <div id="user-management-panel" class="hidden"
+                    <!-- PANEL ZARZĄDZANIA MASZYNAMI (UKRYTY) -->
+                    <div id="machine-management-panel" class="hidden"
                         style="flex: 1; padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; overflow-y: auto;">
 
-                        <!-- ZARZĄDZANIE UŻYTKOWNIKAMI - DODAWANIE -->
+                        <!-- DODAWANIE MASZYNY -->
                         <div style="background: #252525; padding: 20px; border-radius: 10px; border: 1px solid #333;">
-                            <h3 style="margin-top: 0; color: var(--accent-blue);" data-i18n="header_add_user">👥 DODAJ
-                                UŻYTKOWNIKA</h3>
+                            <h3 style="margin-top: 0; color: var(--accent-blue);">⚙️ DODAJ MASZYNĘ</h3>
                             <div style="display: flex; flex-direction: column; gap: 12px;">
                                 <div>
-                                    <label style="color: #888; font-size: 0.8rem;" data-i18n="label_username">Nazwa
-                                        użytkownika</label>
-                                    <input id="new-user-username" type="text" placeholder="np. jan.kowalski"
+                                    <label style="color: #888; font-size: 0.8rem;">Nazwa maszyny</label>
+                                    <input id="new-machine-name" type="text" placeholder="np. BOOBST 3"
                                         style="width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">
                                 </div>
                                 <div>
-                                    <label style="color: #888; font-size: 0.8rem;" data-i18n="label_fullname">Imię i
-                                        nazwisko</label>
-                                    <input id="new-user-fullname" type="text" placeholder="np. Jan Kowalski"
+                                    <label style="color: #888; font-size: 0.8rem;">PIN (4 cyfry)</label>
+                                    <input id="new-machine-pin" type="text" placeholder="1234" maxlength="4"
                                         style="width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">
                                 </div>
-                                <div>
-                                    <label style="color: #888; font-size: 0.8rem;" data-i18n="label_pin">PIN (4
-                                        cyfry)</label>
-                                    <input id="new-user-pin" type="text" placeholder="1234" maxlength="4"
-                                        style="width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">
-                                </div>
-                                <div>
-                                    <label style="color: #888; font-size: 0.8rem;" data-i18n="label_role">Rola</label>
-                                    <select id="new-user-role"
-                                        style="width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">
-                                        <option value="OPERATOR" data-i18n="option_role_operator">Operator</option>
-                                        <option value="WAREHOUSE" data-i18n="option_role_warehouse">Magazynier</option>
-                                        <option value="ADMIN" data-i18n="option_role_admin">Administrator</option>
-                                    </select>
-                                </div>
-                                <div>
-                                    <label style="color: #888; font-size: 0.8rem;" data-i18n="label_shift">Zmiana
-                                        (opcjonalnie)</label>
-                                    <select id="new-user-shift"
-                                        style="width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">
-                                        <option value="" data-i18n="option_shift_none">-- Brak --</option>
-                                        <option value="A" data-i18n="option_shift_A">Zmiana A</option>
-                                        <option value="B" data-i18n="option_shift_B">Zmiana B</option>
-                                        <option value="Dzień" data-i18n="option_shift_day">Dzień</option>
-                                    </select>
-                                </div>
-                                <button onclick="addNewUser()" class="btn btn-blue"
-                                    style="padding: 12px; font-weight: bold; margin-top: 10px;"
-                                    data-i18n="btn_add_user">
-                                    DODAJ UŻYTKOWNIKA
+                                <button onclick="addNewMachine()" class="btn btn-blue"
+                                    style="padding: 12px; font-weight: bold; margin-top: 10px;">
+                                    DODAJ MASZYNĘ
                                 </button>
                             </div>
                         </div>
 
-                        <!-- ZARZĄDZANIE UŻYTKOWNIKAMI - LISTA -->
+                        <!-- LISTA MASZYN -->
                         <div
                             style="background: #252525; padding: 20px; border-radius: 10px; border: 1px solid #333; display: flex; flex-direction: column;">
-                            <h3 style="margin-top: 0; color: var(--accent-blue);" data-i18n="header_user_list">📋 LISTA
-                                UŻYTKOWNIKÓW</h3>
-                            <div id="users-list"
+                            <h3 style="margin-top: 0; color: var(--accent-blue);">📋 LISTA MASZYN</h3>
+                            <div id="machines-list"
                                 style="flex: 1; background: #1a1a1a; border-radius: 6px; padding: 10px; overflow-y: auto; border: 1px solid #333; max-height: 500px;">
-                                <div style="color: #555; text-align: center; margin-top: 20px;"
-                                    data-i18n="users_loading">Ładowanie
-                                    użytkowników...
+                                <div style="color: #555; text-align: center; margin-top: 20px;">
+                                    Ładowanie maszyn...
                                 </div>
                             </div>
                         </div>
@@ -1681,14 +1658,12 @@
         };
         // backBtn removed from UI
 
-        // UNIKALNE PINY DLA KAŻDEJ MASZYNY
-        const MACHINES = [
+        // Domyślna lista maszyn (fallback, gdy API niedostępne)
+        const DEFAULT_MACHINES = [
             'PRINTER MAIN', 'PRINTER 2', 'VISON', 'ETERNA', 'CUTER',
             'ST2', 'VERSOR', 'BOOBST 1', 'BOOBST 2', 'PALLETIZING'
         ];
-
-        // Pin logic stays same... simplistic simulation
-        const MACHINE_PIN_BASE = 1000;
+        let MACHINES = [...DEFAULT_MACHINES];
 
         let selectedMachineName = "";
 
@@ -1714,6 +1689,22 @@
 
         function hideAll() {
             Object.values(screens).forEach(s => s.classList.add('hidden'));
+        }
+
+        async function loadMachinesFromAPI() {
+            try {
+                const response = await fetch(`${API_BASE}/machines`);
+                if (!response.ok) throw new Error('API error');
+
+                const machines = await response.json();
+                if (Array.isArray(machines) && machines.length > 0) {
+                    MACHINES = machines.map(m => m.machine);
+                    return;
+                }
+            } catch (error) {
+                console.warn('Błąd pobierania maszyn, używam fallback:', error);
+            }
+            MACHINES = [...DEFAULT_MACHINES];
         }
 
         // Funkcja renderująca przyciski maszyn z uwzględnieniem statusu
@@ -1766,8 +1757,9 @@
             document.getElementById('warehouse-pin-error').style.opacity = "0";
         }
 
-        function showOperator() {
+        async function showOperator() {
             hideAll();
+            await loadMachinesFromAPI();
             renderMachineButtons(); // Odśwież widok przycisków
             screens.machineSelect.classList.remove('hidden');
             // backBtn removed
@@ -1813,38 +1805,17 @@
             }
 
             try {
-                // Weryfikuj PIN przez API
-                const response = await fetch(`${API_BASE}/auth/verify`, {
+                // Weryfikuj PIN maszyny przez API
+                const response = await fetch(`${API_BASE}/auth/machine-verify`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ pin: input })
+                    body: JSON.stringify({ machine: selectedMachineName, pin: input })
                 });
 
                 const result = await response.json();
 
-                if (response.ok && result.user) {
-                    const user = result.user;
-
-                    // Sprawdź czy użytkownik ma rolę OPERATOR (lub ADMIN też może operować)
-                    if (user.role !== 'OPERATOR' && user.role !== 'ADMIN') {
-                        const err = document.getElementById('pin-error');
-                        err.style.opacity = "1";
-                        err.innerText = `Ten użytkownik to ${user.role}, nie Operator!`;
-                        setTimeout(() => err.style.opacity = "0", 3000);
-                        return;
-                    }
-
-                    // Sprawdź czy konto jest aktywne
-                    if (!user.is_active) {
-                        const err = document.getElementById('pin-error');
-                        err.style.opacity = "1";
-                        err.innerText = "Konto nieaktywne! Skontaktuj się z administratorem.";
-                        setTimeout(() => err.style.opacity = "0", 3000);
-                        return;
-                    }
-
-                    // PIN Prawidłowy - ZAJMIJ MASZYNĘ
-                    const operatorName = user.full_name || user.username;
+                if (response.ok && result.machine) {
+                    const operatorName = selectedMachineName;
                     lockedMachines[selectedMachineName] = operatorName;
 
                     hideAll();
@@ -1853,24 +1824,16 @@
                     document.querySelector('#screen-operator .op-header div div:first-child').innerText = operatorName.toUpperCase();
                     document.getElementById('lbl-machine-name').innerText = selectedMachineName;
 
-                    // Ustaw zmianę operatora (shift)
+                    // Uproszczony badge (operator logowany PIN-em maszyny)
                     const shiftBadge = document.getElementById('operator-shift-badge');
-                    const shiftCode = user.shift || '';
-                    shiftBadge.setAttribute('data-shift', shiftCode);
-
-                    let key = 'shift_None';
-                    if (shiftCode === 'A') key = 'shift_A';
-                    else if (shiftCode === 'B') key = 'shift_B';
-                    else if (shiftCode === 'Dzień') key = 'shift_Day';
-
-                    shiftBadge.setAttribute('data-i18n', key);
-                    shiftBadge.innerText = t(key);
+                    shiftBadge.removeAttribute('data-i18n');
+                    shiftBadge.innerText = "PIN OK";
 
                     screens.operator.classList.remove('hidden');
                     // Notes are loaded when envelope is loaded, not when machine is selected
 
                     // Pamiętaj operatora
-                    currentOperator = user;
+                    currentOperator = { machine: selectedMachineName };
 
                     // Odtwórz stan maszyny z bazy danych (czy jest w trakcie produkcji?)
                     checkMachineState(selectedMachineName);
@@ -2209,7 +2172,7 @@
                 const response = await fetch(`${API_BASE}/envelopes/${encodeURIComponent(envelopeId)}/load`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ machine: machineName })
+                    body: JSON.stringify({ machine: machineName, operator_id: machineName })
                 });
                 const data = await response.json();
                 if (response.ok) {
@@ -2716,11 +2679,6 @@
                 return;
             }
 
-            if (envelope.status === "W_PRODUKCJI" && envelope.machine !== 'PALLETIZING') {
-                alert(t('semaphore_busy', envelope.machine));
-                return;
-            }
-
             // VALIDATE LOCATION FOR OPERATOR (Start 1.4 requirement)
             const allowedValues = ['CART-OUT-01', 'CART-RET-05', 'SHOP_FLOOR', 'SHOP FLOOR'];
             const eLoc = envelope.location ? String(envelope.location).trim().toUpperCase() : '';
@@ -2742,6 +2700,9 @@
             if (!result.success) {
                 alert(t('error_machine', result.error, result.machine));
                 return;
+            }
+            if (result.data && result.data.operation === 'TRANSFER_AUTO') {
+                showEnvelopeMessage(`🔁 Automatyczny transfer na PALLETIZING`, 'success');
             }
             // --------------------------------------
 
@@ -2937,17 +2898,6 @@
                 return;
             }
 
-            // Sprawdź czy koperta jest dostępna (w magazynie lub przypisana do tej maszyny)
-            if (envelope.status === "W_PRODUKCJI" && envelope.machine !== selectedMachineName) {
-                // Allow loading if it's just finding it, but maybe warn?
-                // The requirement says "search only...", but `loadEnvelope` is the action.
-                // If it is on another machine, we usually block stealing unless confirmed (logic elsewhere).
-                // But for now, let's keep the existing check but strict on Location for non-production.
-                
-                 showEnvelopeMessage(`${t('envelopeBusy')} ${envelope.machine}`, 'error');
-                 return;
-            }
-
             // VALIDATE LOCATION FOR OPERATOR (Start 1.4 requirement)
             const allowedValues = ['CART-OUT-01', 'CART-RET-05', 'SHOP_FLOOR', 'SHOP FLOOR'];
             const eLoc = envelope.location ? String(envelope.location).trim().toUpperCase() : '';
@@ -2972,7 +2922,13 @@
 
             // Sukces - załaduj kopertę
             currentEnvelope = { ...envelope, status: 'W_PRODUKCJI', machine: selectedMachineName };
-            showEnvelopeMessage(`✅ Załadowano: ${envelope.product}`, 'success');
+            if (result.data && result.data.operation === 'TRANSFER_AUTO') {
+                showEnvelopeMessage(`🔁 Przejęto kopertę z maszyny ${result.data.from_machine || '-'}`, 'success');
+            } else if (result.data && result.data.operation === 'ALREADY_ON_MACHINE') {
+                showEnvelopeMessage(`ℹ️ Koperta już była na tej maszynie`, 'success');
+            } else {
+                showEnvelopeMessage(`✅ Załadowano: ${envelope.product || validatedCode}`, 'success');
+            }
 
             // Załaduj notatki dla tego RCS
             loadNotesForEnvelope(validatedCode);
@@ -3099,12 +3055,12 @@
                     // Jeśli administrator - pokaż przycisk panelu
                     if (user.role === 'ADMIN') {
                         document.getElementById('btn-admin-panel').classList.remove('hidden');
-                        document.getElementById('btn-user-panel').classList.remove('hidden');
+                        document.getElementById('btn-machine-panel').classList.remove('hidden');
                     } else {
                         document.getElementById('btn-admin-panel').classList.add('hidden');
-                        document.getElementById('btn-user-panel').classList.add('hidden');
+                        document.getElementById('btn-machine-panel').classList.add('hidden');
                         document.getElementById('warehouse-admin-panel').classList.add('hidden');
-                        document.getElementById('user-management-panel').classList.add('hidden');
+                        document.getElementById('machine-management-panel').classList.add('hidden');
                         document.getElementById('warehouse-normal-panel').classList.remove('hidden');
                     }
                 } else {
@@ -3130,6 +3086,9 @@
                 document.getElementById('warehouse-pin-input').value = "";
                 // Ukryj admin panel
                 document.getElementById('warehouse-admin-panel').classList.add('hidden');
+                document.getElementById('machine-management-panel').classList.add('hidden');
+                document.getElementById('btn-admin-panel').classList.add('hidden');
+                document.getElementById('btn-machine-panel').classList.add('hidden');
                 document.getElementById('warehouse-normal-panel').classList.remove('hidden');
             }
         }
@@ -3137,13 +3096,13 @@
         // --- PANEL ADMINA ---
         function toggleAdminPanel() {
             const adminPanel = document.getElementById('warehouse-admin-panel');
-            const userPanel = document.getElementById('user-management-panel');
+            const machinePanel = document.getElementById('machine-management-panel');
             const normalPanel = document.getElementById('warehouse-normal-panel');
 
             if (adminPanel.classList.contains('hidden')) {
                 // Pokaż panel admina, ukryj pozostałe
                 adminPanel.classList.remove('hidden');
-                userPanel.classList.add('hidden');
+                machinePanel.classList.add('hidden');
                 normalPanel.classList.add('hidden');
                 loadProductsDropdown();
                 loadProductsList();
@@ -3154,20 +3113,20 @@
             }
         }
 
-        function toggleUserPanel() {
+        function toggleMachinePanel() {
             const adminPanel = document.getElementById('warehouse-admin-panel');
-            const userPanel = document.getElementById('user-management-panel');
+            const machinePanel = document.getElementById('machine-management-panel');
             const normalPanel = document.getElementById('warehouse-normal-panel');
 
-            if (userPanel.classList.contains('hidden')) {
-                // Pokaż panel użytkowników, ukryj pozostałe
-                userPanel.classList.remove('hidden');
+            if (machinePanel.classList.contains('hidden')) {
+                // Pokaż panel maszyn, ukryj pozostałe
+                machinePanel.classList.remove('hidden');
                 adminPanel.classList.add('hidden');
                 normalPanel.classList.add('hidden');
-                loadUsersList();
+                loadMachinesAdminList();
             } else {
-                // Ukryj panel użytkowników, pokaż normalny
-                userPanel.classList.add('hidden');
+                // Ukryj panel maszyn, pokaż normalny
+                machinePanel.classList.add('hidden');
                 normalPanel.classList.remove('hidden');
             }
         }
@@ -3545,66 +3504,44 @@
             }
         }
 
-        // --- ZARZĄDZANIE UŻYTKOWNIKAMI ---
-        async function loadUsersList() {
+        // --- ZARZĄDZANIE MASZYNAMI OPERATORA ---
+        async function loadMachinesAdminList() {
             try {
-                const response = await fetch(`${API_BASE}/users`);
-                const users = await response.json();
+                const response = await fetch(`${API_BASE}/machines?all=1`);
+                const machines = await response.json();
+                const listContainer = document.getElementById('machines-list');
 
-                const listContainer = document.getElementById('users-list');
-
-                if (!users || users.length === 0) {
-                    listContainer.innerHTML = '<div style="color: #666; text-align: center; padding: 20px;">Brak użytkowników</div>';
+                if (!machines || machines.length === 0) {
+                    listContainer.innerHTML = '<div style="color: #666; text-align: center; padding: 20px;">Brak maszyn</div>';
                     return;
                 }
 
                 let html = '';
-                users.forEach(user => {
-                    const roleColors = {
-                        'OPERATOR': '#4CAF50',
-                        'WAREHOUSE': '#2196F3',
-                        'ADMIN': '#FF9800'
-                    };
-
-                    const roleLabels = {
-                        'OPERATOR': 'Operator',
-                        'WAREHOUSE': 'Magazynier',
-                        'ADMIN': 'Administrator'
-                    };
-
-                    const activeTag = user.is_active ?
-                        '<span style="background: #2a5; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 0.7rem; margin-left: 5px;">Aktywny</span>' :
-                        '<span style="background: #d32f2f; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 0.7rem; margin-left: 5px;">Nieaktywny</span>';
+                machines.forEach(machine => {
+                    const activeTag = machine.is_active
+                        ? '<span style="background: #2a5; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 0.7rem; margin-left: 5px;">Aktywna</span>'
+                        : '<span style="background: #d32f2f; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 0.7rem; margin-left: 5px;">Nieaktywna</span>';
 
                     html += `
-                        <div style="background: #252525; padding: 15px; margin-bottom: 10px; border-radius: 6px; border-left: 3px solid ${roleColors[user.role]};">
+                        <div style="background: #252525; padding: 15px; margin-bottom: 10px; border-radius: 6px; border-left: 3px solid #2196F3;">
                             <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
                                 <div style="flex: 1;">
                                     <div style="font-weight: bold; color: #fff; font-size: 1rem; margin-bottom: 4px;">
-                                        ${user.full_name || user.username}
+                                        ${machine.machine}
                                         ${activeTag}
                                     </div>
-                                    <div style="color: #888; font-size: 0.8rem;">@${user.username}</div>
-                                    <div style="color: ${roleColors[user.role]}; font-size: 0.85rem; font-weight: 600; margin-top: 4px;">
-                                        ${roleLabels[user.role]}
-                                        ${user.shift ? ` • Zmiana: ${user.shift}` : ''}
-                                    </div>
-                                </div>
-                                <div style="text-align: right;">
-                                    <div style="background: #333; padding: 8px 12px; border-radius: 4px; font-family: monospace; color: #4CAF50; font-weight: bold; font-size: 1.1rem;">
-                                        ${user.pin}
-                                    </div>
+                                    <div style="color: #888; font-size: 0.8rem;">ID: ${machine.id}</div>
                                 </div>
                             </div>
                             <div style="display: flex; gap: 5px; margin-top: 10px;">
-                                <button onclick="editUser(${user.id})" class="btn" style="flex: 1; background: #444; color: #fff; padding: 8px; font-size: 0.8rem;">
-                                    ✏️ Edytuj
+                                <button onclick="editMachine(${machine.id}, '${machine.machine.replace(/'/g, "\\'")}')" class="btn" style="flex: 1; background: #444; color: #fff; padding: 8px; font-size: 0.8rem;">
+                                    ✏️ Nazwa
                                 </button>
-                                <button onclick="changePinUser(${user.id}, '${user.username}')" class="btn" style="flex: 1; background: #555; color: #fff; padding: 8px; font-size: 0.8rem;">
-                                    🔑 Zmień PIN
+                                <button onclick="changeMachinePin(${machine.id}, '${machine.machine.replace(/'/g, "\\'")}')" class="btn" style="flex: 1; background: #555; color: #fff; padding: 8px; font-size: 0.8rem;">
+                                    🔑 PIN
                                 </button>
-                                <button onclick="deleteUser(${user.id}, '${user.username}')" class="btn" style="background: #661111; color: #ffaaaa; padding: 8px; font-size: 0.8rem;">
-                                    ❌
+                                <button onclick="toggleMachineActive(${machine.id}, ${machine.is_active ? 0 : 1}, '${machine.machine.replace(/'/g, "\\'")}')" class="btn" style="background: #661111; color: #ffaaaa; padding: 8px; font-size: 0.8rem;">
+                                    ${machine.is_active ? '⛔' : '✅'}
                                 </button>
                             </div>
                         </div>
@@ -3612,160 +3549,125 @@
                 });
 
                 listContainer.innerHTML = html;
-
             } catch (error) {
-                console.error('Error loading users:', error);
-                document.getElementById('users-list').innerHTML = '<div style="color: #ff5555; text-align: center; padding: 20px;">Błąd ładowania użytkowników</div>';
+                console.error('Error loading machines:', error);
+                document.getElementById('machines-list').innerHTML = '<div style="color: #ff5555; text-align: center; padding: 20px;">Błąd ładowania maszyn</div>';
             }
         }
 
-        async function addNewUser() {
-            const username = document.getElementById('new-user-username').value.trim();
-            const fullname = document.getElementById('new-user-fullname').value.trim();
-            const pin = document.getElementById('new-user-pin').value.trim();
-            const role = document.getElementById('new-user-role').value;
-            const shift = document.getElementById('new-user-shift').value || null;
+        async function addNewMachine() {
+            const machine = document.getElementById('new-machine-name').value.trim();
+            const pin = document.getElementById('new-machine-pin').value.trim();
 
-            if (!username || !pin || !role) {
-                alert(t('fill_required_user'));
+            if (!machine || !pin) {
+                alert('Uzupełnij nazwę maszyny i PIN.');
                 return;
             }
 
-            if (pin.length !== 4 || !/^\d{4}$/.test(pin)) {
-                alert(t('pin_4_digits'));
+            if (!/^\d{4}$/.test(pin)) {
+                alert('PIN musi składać się z 4 cyfr.');
                 return;
             }
 
             try {
-                const response = await fetch(`${API_BASE}/users`, {
+                const response = await fetch(`${API_BASE}/machines`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ username, pin, role, full_name: fullname, shift })
+                    body: JSON.stringify({ machine, pin })
                 });
-
                 const result = await response.json();
 
                 if (response.ok) {
-                    alert(t('user_added_success', username));
-
-                    // Wyczyść pola
-                    document.getElementById('new-user-username').value = '';
-                    document.getElementById('new-user-fullname').value = '';
-                    document.getElementById('new-user-pin').value = '';
-                    document.getElementById('new-user-role').value = 'OPERATOR';
-                    document.getElementById('new-user-shift').value = '';
-
-                    // Odśwież listę
-                    loadUsersList();
+                    alert(`✅ Dodano maszynę: ${machine}`);
+                    document.getElementById('new-machine-name').value = '';
+                    document.getElementById('new-machine-pin').value = '';
+                    await loadMachinesAdminList();
+                    await loadMachinesFromAPI();
                 } else {
-                    alert(`❌ Błąd: ${result.error || 'Nie udało się dodać użytkownika'}`);
+                    alert(`❌ Błąd: ${result.error || 'Nie udało się dodać maszyny'}`);
                 }
             } catch (error) {
-                console.error('Error adding user:', error);
+                console.error('Error adding machine:', error);
                 alert(t('error_network'));
             }
         }
 
-        async function editUser(userId) {
+        async function editMachine(machineId, currentName) {
+            const newName = prompt('Nowa nazwa maszyny:', currentName);
+            if (newName === null) return;
+            const clean = newName.trim();
+            if (!clean) {
+                alert('Nazwa maszyny nie może być pusta.');
+                return;
+            }
+
             try {
-                // Pobierz dane użytkownika
-                const response = await fetch(`${API_BASE}/users/${userId}`);
-                const user = await response.json();
-
-                if (!user) {
-                    alert(t('user_not_found'));
-                    return;
-                }
-
-                const fullname = prompt('Imię i nazwisko:', user.full_name || '');
-                if (fullname === null) return; // Anulowano
-
-                const roleLabels = { 'OPERATOR': '1', 'WAREHOUSE': '2', 'ADMIN': '3' };
-                const roleOptions = { '1': 'OPERATOR', '2': 'WAREHOUSE', '3': 'ADMIN' };
-                const currentRole = roleLabels[user.role];
-
-                const roleChoice = prompt(`Wybierz rolę:\\n1 - Operator\\n2 - Magazynier\\n3 - Administrator\\n\\nAktualna: ${user.role}`, currentRole);
-                if (roleChoice === null) return;
-
-                const role = roleOptions[roleChoice] || user.role;
-
-                const shiftOptions = { '1': 'A', '2': 'B', '3': 'Dzień', '4': null };
-                const shiftChoice = prompt(`Zmiana:\\n1 - A\\n2 - B\\n3 - Dzień\\n4 - Brak\\n\\nAktualna: ${user.shift || 'Brak'}`, user.shift === 'A' ? '1' : user.shift === 'B' ? '2' : user.shift === 'Dzień' ? '3' : '4');
-                if (shiftChoice === null) return;
-
-                const shift = shiftOptions[shiftChoice];
-
-                const updateResponse = await fetch(`${API_BASE}/users/${userId}`, {
+                const response = await fetch(`${API_BASE}/machines/${machineId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ full_name: fullname, role, shift })
+                    body: JSON.stringify({ machine: clean })
                 });
-
-                const result = await updateResponse.json();
-
-                if (updateResponse.ok) {
-                    alert(t('user_updated_success'));
-                    loadUsersList();
+                const result = await response.json();
+                if (response.ok) {
+                    await loadMachinesAdminList();
+                    await loadMachinesFromAPI();
                 } else {
                     alert(`❌ Błąd: ${result.error}`);
                 }
             } catch (error) {
-                console.error('Error editing user:', error);
+                console.error('Error editing machine:', error);
                 alert(t('error_network'));
             }
         }
 
-        async function changePinUser(userId, username) {
-            const newPin = prompt(`Zmień PIN dla użytkownika: ${username}\\n\\nWpisz nowy PIN (4 cyfry):`);
-
-            if (!newPin) return; // Anulowano
-
-            if (newPin.length !== 4 || !/^\d{4}$/.test(newPin)) {
-                alert(t('pin_4_digits'));
+        async function changeMachinePin(machineId, machineName) {
+            const newPin = prompt(`Zmień PIN maszyny: ${machineName}\\n\\nWpisz nowy PIN (4 cyfry):`);
+            if (!newPin) return;
+            if (!/^\d{4}$/.test(newPin)) {
+                alert('PIN musi składać się z 4 cyfr.');
                 return;
             }
 
             try {
-                const response = await fetch(`${API_BASE}/users/${userId}/change-pin`, {
-                    method: 'POST',
+                const response = await fetch(`${API_BASE}/machines/${machineId}/pin`, {
+                    method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ new_pin: newPin })
                 });
-
                 const result = await response.json();
-
                 if (response.ok) {
-                    alert(t('pin_changed_success', username, newPin));
-                    loadUsersList();
+                    alert(`✅ PIN dla ${machineName} został zaktualizowany.`);
+                    await loadMachinesAdminList();
                 } else {
                     alert(`❌ Błąd: ${result.error}`);
                 }
             } catch (error) {
-                console.error('Error changing PIN:', error);
+                console.error('Error changing machine PIN:', error);
                 alert(t('error_network'));
             }
         }
 
-        async function deleteUser(userId, username) {
-            if (!confirm(`❌ Czy na pewno chcesz usunąć użytkownika: ${username}?\\n\\nUżytkownik zostanie dezaktywowany (soft delete).`)) {
+        async function toggleMachineActive(machineId, targetActive, machineName) {
+            const action = targetActive ? 'aktywować' : 'dezaktywować';
+            if (!confirm(`Czy na pewno chcesz ${action} maszynę ${machineName}?`)) {
                 return;
             }
 
             try {
-                const response = await fetch(`${API_BASE}/users/${userId}`, {
-                    method: 'DELETE'
+                const response = await fetch(`${API_BASE}/machines/${machineId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ is_active: targetActive })
                 });
-
                 const result = await response.json();
-
                 if (response.ok) {
-                    alert(t('user_deleted_success', username));
-                    loadUsersList();
+                    await loadMachinesAdminList();
+                    await loadMachinesFromAPI();
                 } else {
                     alert(`❌ Błąd: ${result.error}`);
                 }
             } catch (error) {
-                console.error('Error deleting user:', error);
+                console.error('Error toggling machine state:', error);
                 alert(t('error_network'));
             }
         }
@@ -4587,9 +4489,37 @@
 
         let html5QrcodeScanner = null;
         let currentScanType = null;
+        let scannerState = 'idle'; // idle | starting | running | stopping
+        let scannerRunToken = 0;
+        const scannerTelemetry = {
+            decodeSuccess: { out: 0, in: 0, load: 0 },
+            cameraStartErrors: 0
+        };
+        window.scannerTelemetry = scannerTelemetry;
 
         // Zmienna do unikania pętli schowka (mechanizm konsumpcji)
         let lastProcessedClipboardContent = null;
+        let lastDecodedFingerprint = null;
+        let lastDecodedAt = 0;
+
+        function isSecureCameraContext() {
+            return window.isSecureContext || location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        }
+
+        function getCameraErrorMessage(err) {
+            if (!err) return t('camera_unknown_error');
+            if (err.name === 'NotAllowedError' || err.name === 'PermissionDeniedError') return t('camera_permission_denied');
+            if (err.name === 'NotFoundError' || err.name === 'DevicesNotFoundError') return t('camera_not_found');
+            if (err.name === 'NotReadableError' || err.name === 'TrackStartError') return t('camera_in_use');
+            if (typeof err === 'string') return err;
+            return err.message || t('camera_unknown_error');
+        }
+
+        function onScanError(error, scanType) {
+            // html5-qrcode raportuje tu też zwykłe "brak kodu w klatce".
+            if (error && String(error).includes('NotFoundException')) return;
+            console.debug('Scan decode error', scanType, error);
+        }
 
         async function simulateScan(type, manualValue = null) {
             currentScanType = type;
@@ -4605,58 +4535,111 @@
                         lastProcessedClipboardContent = cleanText; // "Zużyj" dane
                         processScanResult(cleanText, type, false, true);
                         return;
-                    } else {
-                        console.log("♻️ Schowek pominięty (dane już przetworzone):", cleanText);
                     }
+                    console.log("♻️ Schowek pominięty (dane już przetworzone):", cleanText);
                 }
-            } catch (err) { console.log('Schowek:', err); }
+            } catch (err) {
+                console.debug('Schowek niedostępny:', err);
+            }
 
             // Jeśli schowek pusty lub "zużyty" -> odpal kamerę
-            startCameraScanner();
+            await openScanner(type);
         }
 
-        function startCameraScanner() {
-            // SPRAWDZENIE BEZPIECZNEGO KONTEKSTU (HTTP vs HTTPS)
-            if (!window.isSecureContext && location.hostname !== 'localhost' && location.hostname !== '127.0.0.1') {
-                alert("⚠️ KAMERA ZABLOKOWANA PRZEZ PRZEGLĄDARKĘ!\n\nPrzeglądarki blokują kamerę na stronach nieszyfrowanych (HTTP), chyba że to localhost.\n\nROZWIĄZANIE DLA CHROME (ANDROID):\n1. Otwórz: chrome://flags\n2. Szukaj: 'Insecure origins treated as secure'\n3. Włącz (Enabled) i dodaj adres IP tego serwera.\n4. Zrestartuj Chrome.");
+        async function openScanner(scanType) {
+            currentScanType = scanType || currentScanType;
+
+            if (!isSecureCameraContext()) {
+                alert(`${t('camera_blocked')}\n\n${t('camera_secure_context_hint')}`);
+                return;
+            }
+
+            if (typeof Html5Qrcode === 'undefined') {
+                alert(t('camera_lib_missing'));
+                return;
+            }
+
+            if (scannerState === 'running' || scannerState === 'starting') return;
+            if (scannerState === 'stopping') {
+                setTimeout(() => openScanner(scanType), 150);
                 return;
             }
 
             const modal = document.getElementById('scanner-modal');
+            scannerState = 'starting';
             modal.classList.remove('hidden');
-            if (html5QrcodeScanner === null) {
-                try { html5QrcodeScanner = new Html5Qrcode("reader"); } catch (e) { alert("Błąd inicjalizacji biblioteki: " + e); return; }
-            }
-            const config = { fps: 10, qrbox: { width: 250, height: 250 } };
-            html5QrcodeScanner.start({ facingMode: "environment" }, config, onScanSuccess)
-                .catch(err => {
-                    console.error("Camera error:", err);
-                    let msg = "Nieznany błąd";
-                    if (typeof err === 'string') msg = err;
-                    if (err.name === 'NotAllowedError') msg = "Brak uprawnień do kamery. Zmień ustawienia w przeglądarce.";
-                    if (err.name === 'NotFoundError') msg = "Nie znaleziono kamery.";
-                    if (err.name === 'NotReadableError') msg = "Kamera jest zajęta przez inną aplikację.";
+            const runToken = ++scannerRunToken;
 
-                    alert(`⛔ BŁĄD KAMERY:\n${msg}\n\nSzczegóły: ${err}`);
-                    stopScanner();
-                });
-        }
+            try {
+                if (html5QrcodeScanner === null) {
+                    html5QrcodeScanner = new Html5Qrcode("reader");
+                }
 
-        function stopScanner() {
-            const modal = document.getElementById('scanner-modal');
-            if (html5QrcodeScanner) {
-                html5QrcodeScanner.stop().then(() => {
-                    html5QrcodeScanner.clear();
-                    modal.classList.add('hidden');
-                }).catch(() => modal.classList.add('hidden'));
-            } else {
+                const config = { fps: 10, qrbox: { width: 250, height: 250 } };
+                await html5QrcodeScanner.start(
+                    { facingMode: "environment" },
+                    config,
+                    (decodedText) => onScanDecoded(decodedText, currentScanType),
+                    (errorMessage) => onScanError(errorMessage, currentScanType)
+                );
+
+                if (runToken !== scannerRunToken) {
+                    await closeScanner();
+                    return;
+                }
+                scannerState = 'running';
+            } catch (err) {
+                scannerTelemetry.cameraStartErrors += 1;
+                scannerState = 'idle';
                 modal.classList.add('hidden');
+                console.error("Camera start error:", err);
+                alert(`⛔ ${t('camera_start_error')}\n${getCameraErrorMessage(err)}`);
             }
         }
 
-        function onScanSuccess(decodedText) {
-            stopScanner();
-            processScanResult(decodedText, currentScanType);
+        async function closeScanner() {
+            const modal = document.getElementById('scanner-modal');
+            if (scannerState === 'idle') {
+                modal.classList.add('hidden');
+                return;
+            }
+            if (scannerState === 'stopping') return;
+
+            scannerState = 'stopping';
+            try {
+                if (html5QrcodeScanner) {
+                    await html5QrcodeScanner.stop();
+                    await html5QrcodeScanner.clear();
+                }
+            } catch (err) {
+                console.debug('Scanner stop info:', err);
+            } finally {
+                modal.classList.add('hidden');
+                scannerState = 'idle';
+            }
+        }
+
+        // Backward-compatible alias for existing handlers.
+        function stopScanner() {
+            closeScanner();
+        }
+
+        function onScanDecoded(decodedText, scanType) {
+            const resolvedType = scanType || currentScanType;
+            if (!resolvedType || !decodedText) return;
+
+            const fingerprint = `${resolvedType}:${decodedText}`;
+            const now = Date.now();
+            if (fingerprint === lastDecodedFingerprint && now - lastDecodedAt < 1200) return;
+            lastDecodedFingerprint = fingerprint;
+            lastDecodedAt = now;
+
+            if (scannerTelemetry.decodeSuccess[resolvedType] !== undefined) {
+                scannerTelemetry.decodeSuccess[resolvedType] += 1;
+            }
+
+            closeScanner();
+            processScanResult(decodedText, resolvedType);
         }
 
         function processScanResult(code, type, isManual = false, isClipboard = false) {
