@@ -5,13 +5,21 @@ Serwer API dla Systemu Obiegu Kopert.
 Uruchomienie: python3 api_server.py
 Serwer dostępny na: http://localhost:5000
 """
-from flask import Flask, jsonify, request, send_file
+from flask import Flask, jsonify, request, send_file, Response
 from flask_cors import CORS
 from database import db
 from domain import EnvelopeStatus, HolderType, CreationReason, Envelope
 import json
 from datetime import datetime
 import os
+import hashlib
+import hmac
+import io
+import time
+import uuid
+from collections import defaultdict, deque
+from pathlib import Path
+from PIL import Image, UnidentifiedImageError
 
 # --- Kody błędów zgodne ze specyfikacją v2.0 ---
 ERROR_CODES = {
@@ -25,6 +33,23 @@ ERROR_CODES = {
 
 app = Flask(__name__)
 CORS(app)  # Pozwala na zapytania z przeglądarki (prototype.html)
+
+APP_ENV = os.environ.get('APP_ENV', 'development').lower()
+IMAGE_SIGNING_SECRET = os.environ.get('IMAGE_SIGNING_SECRET', '')
+if APP_ENV == 'production' and not IMAGE_SIGNING_SECRET:
+    raise RuntimeError("Missing IMAGE_SIGNING_SECRET in production")
+if not IMAGE_SIGNING_SECRET:
+    IMAGE_SIGNING_SECRET = "dev-only-change-me"
+
+NOTE_IMAGES_DIR = Path(os.environ.get('NOTE_IMAGES_DIR', './data/note_images'))
+NOTE_IMAGES_DIR.mkdir(parents=True, exist_ok=True)
+SIGNED_URL_TTL_SECONDS = int(os.environ.get('SIGNED_URL_TTL_SECONDS', '600'))
+MAX_IMAGE_UPLOAD_BYTES = 10 * 1024 * 1024
+MAX_IMAGES_PER_NOTE = 3
+app.config['MAX_CONTENT_LENGTH'] = MAX_IMAGE_UPLOAD_BYTES + 1024 * 1024
+
+_rate_limit_store: dict[str, deque[float]] = defaultdict(deque)
+_note_image_metrics: dict[str, int] = defaultdict(int)
 
 # ========================
 # POMOCNICZE FUNKCJE
@@ -100,6 +125,125 @@ def init_demo_envelopes():
         print(f"✅ Dodano {len(demo_envelopes)} kopert demo.")
     
     conn.close()
+
+
+def _is_rate_limited(key: str, max_requests: int, window_seconds: int) -> bool:
+    now = time.time()
+    bucket = _rate_limit_store[key]
+    while bucket and now - bucket[0] > window_seconds:
+        bucket.popleft()
+    if len(bucket) >= max_requests:
+        return True
+    bucket.append(now)
+    return False
+
+
+def _increment_note_metric(metric_name: str) -> None:
+    _note_image_metrics[metric_name] += 1
+
+
+def _supported_image_magic(data: bytes) -> bool:
+    if data.startswith(b'\xFF\xD8\xFF'):  # JPEG
+        return True
+    if data.startswith(b'\x89PNG\r\n\x1a\n'):  # PNG
+        return True
+    if data.startswith(b'GIF87a') or data.startswith(b'GIF89a'):  # GIF
+        return True
+    if len(data) > 12 and data[0:4] == b'RIFF' and data[8:12] == b'WEBP':  # WEBP
+        return True
+    return False
+
+
+def _normalize_image_to_webp(file_storage):
+    raw = file_storage.read(MAX_IMAGE_UPLOAD_BYTES + 1)
+    if not raw:
+        return None, "Pusty plik", 400
+    if len(raw) > MAX_IMAGE_UPLOAD_BYTES:
+        return None, "Plik przekracza limit 10MB", 413
+    if not _supported_image_magic(raw):
+        return None, "Nieprawidlowy format obrazu (magic bytes)", 400
+
+    try:
+        image = Image.open(io.BytesIO(raw))
+        image.load()
+    except UnidentifiedImageError:
+        return None, "Nie udalo sie odczytac obrazu", 400
+    except Exception as e:
+        return None, f"Uszkodzony obraz: {e}", 400
+
+    if image.mode not in ("RGB", "RGBA"):
+        image = image.convert("RGB")
+
+    max_dim = 1600
+    image.thumbnail((max_dim, max_dim), Image.Resampling.LANCZOS)
+    if image.mode == "RGBA":
+        bg = Image.new("RGB", image.size, (255, 255, 255))
+        bg.paste(image, mask=image.split()[3])
+        image = bg
+
+    out = io.BytesIO()
+    image.save(out, format='WEBP', quality=82, method=6)
+    webp_bytes = out.getvalue()
+    sha256_hex = hashlib.sha256(webp_bytes).hexdigest()
+
+    return {
+        "bytes": webp_bytes,
+        "mime_type": "image/webp",
+        "width": image.width,
+        "height": image.height,
+        "size_bytes": len(webp_bytes),
+        "sha256": sha256_hex,
+    }, None, 200
+
+
+def _sign_image_token(image_id: int, exp: int) -> str:
+    payload = f"{image_id}:{exp}".encode("utf-8")
+    return hmac.new(IMAGE_SIGNING_SECRET.encode("utf-8"), payload, hashlib.sha256).hexdigest()
+
+
+def _build_signed_image_url(image_id: int, exp: int) -> str:
+    sig = _sign_image_token(image_id, exp)
+    return f"/api/note-images/{image_id}/file?exp={exp}&sig={sig}"
+
+
+def _verify_signed_image_url(image_id: int, exp_raw: str, sig: str) -> bool:
+    try:
+        exp = int(exp_raw)
+    except Exception:
+        return False
+
+    if exp < int(time.time()):
+        return False
+
+    expected = _sign_image_token(image_id, exp)
+    return hmac.compare_digest(expected, sig or "")
+
+
+def _serialize_image_meta(image_row: dict) -> dict:
+    exp = int(time.time()) + SIGNED_URL_TTL_SECONDS
+    return {
+        "id": image_row["id"],
+        "original_filename": image_row.get("original_filename"),
+        "mime_type": image_row["mime_type"],
+        "width": image_row["width"],
+        "height": image_row["height"],
+        "size_bytes": image_row["size_bytes"],
+        "order_index": image_row["order_index"],
+        "revision": image_row["revision"],
+        "annotations_json": image_row.get("annotations_json") or {"objects": []},
+        "etag": image_row.get("sha256"),
+        "signed_url": _build_signed_image_url(image_row["id"], exp),
+        "expires_at": exp,
+    }
+
+
+def _parse_note_cursor(cursor_raw: str):
+    if not cursor_raw:
+        return None
+    parts = cursor_raw.split(",", 1)
+    if len(parts) != 2:
+        return None
+    return cursor_raw
 
 # ========================
 # ENDPOINTY API
@@ -448,23 +592,27 @@ def handle_product_machine_note(product_code, machine_id):
         }
         
         if specific:
+            specific_images = db.get_note_images('product_machine_note', specific['id'])
             result["specific_note"] = {
                 "id": specific['id'],
                 "content": specific['note_content'],
                 "created_at": specific['created_at'],
                 "modified_at": specific['modified_at'],
                 "created_by": specific['created_by'],
-                "modified_by": specific['modified_by']
+                "modified_by": specific['modified_by'],
+                "images": [_serialize_image_meta(img) for img in specific_images]
             }
         
         if global_note:
+            global_images = db.get_note_images('product_machine_note', global_note['id'])
             result["global_note"] = {
                 "id": global_note['id'],
                 "content": global_note['note_content'],
                 "created_at": global_note['created_at'],
                 "modified_at": global_note['modified_at'],
                 "created_by": global_note['created_by'],
-                "modified_by": global_note['modified_by']
+                "modified_by": global_note['modified_by'],
+                "images": [_serialize_image_meta(img) for img in global_images]
             }
         
         return jsonify(result)
@@ -573,6 +721,302 @@ def handle_product_machine_note(product_code, machine_id):
             "success": True,
             "message": "Notatka usunięta"
         })
+
+
+@app.route('/api/operator-notes/<path:envelope_id>/<path:machine_id>', methods=['GET'])
+def get_operator_notes(envelope_id, machine_id):
+    limit = request.args.get('limit', 20, type=int)
+    limit = max(1, min(limit, 100))
+    cursor_raw = request.args.get('cursor')
+    cursor = _parse_note_cursor(cursor_raw)
+    if cursor_raw and cursor is None:
+        return jsonify({"success": False, "error": "Nieprawidlowy cursor"}), 400
+
+    result = db.get_operator_notes_paginated(envelope_id, machine_id, limit, cursor)
+    if not result.get("success"):
+        return jsonify(result), result.get("status", 500)
+
+    notes = []
+    for note in result["notes"]:
+        images = db.get_note_images('operator_note', note["id"])
+        notes.append(
+            {
+                "id": note["id"],
+                "envelope_id": note["envelope_id"],
+                "machine_id": note["machine_id"],
+                "note_kind": note["note_kind"],
+                "note_data": note["note_data"],
+                "created_by": note["created_by"],
+                "created_at": note["created_at"],
+                "modified_at": note["modified_at"],
+                "images": [_serialize_image_meta(img) for img in images],
+            }
+        )
+
+    return jsonify(
+        {
+            "success": True,
+            "notes": notes,
+            "next_cursor": result.get("next_cursor"),
+        }
+    )
+
+
+@app.route('/api/operator-notes', methods=['POST'])
+def create_operator_note():
+    data = request.get_json() or {}
+    envelope_id = str(data.get('envelope_id', '')).strip()
+    machine_id = str(data.get('machine_id', '')).strip()
+    note_kind = str(data.get('note_kind', 'standard')).strip().lower()
+    note_data = data.get('note_data_json') or {}
+    author = str(data.get('author', 'Nieznany')).strip()
+
+    if note_kind not in {'standard', 'pallet', 'slot'}:
+        return jsonify({"success": False, "error": "Nieprawidlowy note_kind"}), 400
+    if not envelope_id or not machine_id:
+        return jsonify({"success": False, "error": "Wymagane pola: envelope_id, machine_id"}), 400
+    if not isinstance(note_data, dict):
+        return jsonify({"success": False, "error": "note_data_json musi byc obiektem"}), 400
+
+    result = db.create_operator_note(envelope_id, machine_id, note_kind, note_data, author)
+    if not result.get("success"):
+        return jsonify(result), result.get("status", 500)
+
+    return jsonify(
+        {
+            "success": True,
+            "note_id": result["note_id"],
+            "envelope_id": envelope_id,
+            "machine_id": machine_id,
+            "note_kind": note_kind,
+        }
+    )
+
+
+@app.route('/api/operator-notes/<int:note_id>', methods=['DELETE'])
+def delete_operator_note(note_id):
+    result = db.soft_delete_operator_note(note_id)
+    if not result.get("success"):
+        return jsonify(result), result.get("status", 500)
+    return jsonify({"success": True})
+
+
+@app.errorhandler(413)
+def handle_request_too_large(_error):
+    _increment_note_metric("upload_fail")
+    _increment_note_metric("upload_413")
+    return jsonify({"success": False, "error": "Plik przekracza limit rozmiaru"}), 413
+
+
+@app.route('/api/note-images', methods=['POST'])
+def upload_note_image():
+    uploaded_by = (request.form.get('uploaded_by') or 'anonymous').strip()
+    remote_ip = request.remote_addr or 'unknown'
+    if _is_rate_limited(f"user:{uploaded_by}", 20, 60):
+        _increment_note_metric("upload_fail")
+        _increment_note_metric("upload_429")
+        return jsonify({"success": False, "error": "Rate limit user exceeded"}), 429, {"Retry-After": "60"}
+    if _is_rate_limited(f"ip:{remote_ip}", 60, 60):
+        _increment_note_metric("upload_fail")
+        _increment_note_metric("upload_429")
+        return jsonify({"success": False, "error": "Rate limit ip exceeded"}), 429, {"Retry-After": "60"}
+
+    note_scope = (request.form.get('note_scope') or '').strip()
+    if note_scope not in {'operator_note', 'product_machine_note'}:
+        _increment_note_metric("upload_fail")
+        return jsonify({"success": False, "error": "Nieprawidlowy note_scope"}), 400
+
+    note_id_raw = request.form.get('note_id')
+    try:
+        note_id = int(note_id_raw)
+    except Exception:
+        _increment_note_metric("upload_fail")
+        return jsonify({"success": False, "error": "Nieprawidlowy note_id"}), 400
+
+    if not db.note_exists(note_scope, note_id):
+        _increment_note_metric("upload_fail")
+        return jsonify({"success": False, "error": "Notatka nie istnieje"}), 404
+
+    order_index = request.form.get('order_index', '0')
+    try:
+        order_index_int = int(order_index)
+    except Exception:
+        order_index_int = 0
+
+    annotations_raw = request.form.get('annotations_json')
+    annotations_json = {"objects": []}
+    if annotations_raw:
+        try:
+            annotations_json = json.loads(annotations_raw)
+            if not isinstance(annotations_json, dict):
+                raise ValueError("annotations_json must be object")
+        except Exception:
+            _increment_note_metric("upload_fail")
+            return jsonify({"success": False, "error": "Nieprawidlowe annotations_json"}), 400
+
+    file = request.files.get('file')
+    if not file:
+        _increment_note_metric("upload_fail")
+        return jsonify({"success": False, "error": "Brak pliku"}), 400
+
+    normalized, err, status_code = _normalize_image_to_webp(file)
+    if err:
+        _increment_note_metric("upload_fail")
+        if status_code == 413:
+            _increment_note_metric("upload_413")
+        return jsonify({"success": False, "error": err}), status_code
+
+    now = datetime.utcnow()
+    rel_dir = Path(str(now.year), f"{now.month:02d}")
+    abs_dir = NOTE_IMAGES_DIR / rel_dir
+    abs_dir.mkdir(parents=True, exist_ok=True)
+    filename = f"{uuid.uuid4().hex}.webp"
+    rel_path = str((rel_dir / filename).as_posix())
+    abs_path = abs_dir / filename
+
+    with open(abs_path, 'wb') as f:
+        f.write(normalized["bytes"])
+
+    result = db.create_note_image(
+        note_scope=note_scope,
+        note_id=note_id,
+        storage_path=rel_path,
+        original_filename=file.filename,
+        mime_type=normalized["mime_type"],
+        width=normalized["width"],
+        height=normalized["height"],
+        size_bytes=normalized["size_bytes"],
+        sha256_hex=normalized["sha256"],
+        annotations_json=annotations_json,
+        order_index=order_index_int,
+        created_by=uploaded_by,
+    )
+
+    if not result.get("success"):
+        _increment_note_metric("upload_fail")
+        try:
+            if abs_path.exists():
+                abs_path.unlink()
+        except Exception:
+            pass
+        return jsonify(result), result.get("status", 500)
+
+    image_row = db.get_note_image_by_id(result["image_id"])
+    _increment_note_metric("upload_success")
+    return jsonify({"success": True, "image": _serialize_image_meta(image_row)})
+
+
+@app.route('/api/note-images/<int:image_id>/annotations', methods=['PUT'])
+def update_note_image_annotations(image_id):
+    data = request.get_json() or {}
+    modified_by = str(data.get('modified_by', 'anonymous')).strip()
+    annotations_json = data.get('annotations_json')
+    expected_revision = data.get('expected_revision')
+
+    if not isinstance(annotations_json, dict):
+        return jsonify({"success": False, "error": "annotations_json musi byc obiektem"}), 400
+    try:
+        expected_revision_int = int(expected_revision)
+    except Exception:
+        return jsonify({"success": False, "error": "expected_revision jest wymagany"}), 400
+
+    result = db.update_note_image_annotations(image_id, annotations_json, modified_by, expected_revision_int)
+    if not result.get("success"):
+        if result.get("status") == 409:
+            _increment_note_metric("annotations_conflict_409")
+            return jsonify(result), 409
+        return jsonify(result), result.get("status", 500)
+
+    image_row = db.get_note_image_by_id(image_id)
+    return jsonify({"success": True, "image": _serialize_image_meta(image_row)})
+
+
+@app.route('/api/note-images/<int:image_id>', methods=['DELETE'])
+def delete_note_image(image_id):
+    image_row = db.get_note_image_by_id(image_id)
+    if not image_row or not image_row.get("is_active"):
+        return jsonify({"success": False, "error": "Obraz nie istnieje"}), 404
+
+    result = db.soft_delete_note_image(image_id)
+    if not result.get("success"):
+        return jsonify(result), result.get("status", 500)
+
+    abs_path = NOTE_IMAGES_DIR / image_row["storage_path"]
+    try:
+        if abs_path.exists():
+            abs_path.unlink()
+    except Exception:
+        pass
+
+    return jsonify({"success": True})
+
+
+@app.route('/api/note-images/<int:image_id>/signed-url', methods=['GET'])
+def get_note_image_signed_url(image_id):
+    image_row = db.get_note_image_by_id(image_id)
+    if not image_row or not image_row.get("is_active"):
+        return jsonify({"success": False, "error": "Obraz nie istnieje"}), 404
+
+    exp = int(time.time()) + SIGNED_URL_TTL_SECONDS
+    return jsonify(
+        {
+            "success": True,
+            "url": _build_signed_image_url(image_id, exp),
+            "expires_at": exp,
+            "etag": image_row.get("sha256"),
+        }
+    )
+
+
+@app.route('/api/note-images/<int:image_id>/file', methods=['GET'])
+def serve_note_image_file(image_id):
+    exp = request.args.get('exp')
+    sig = request.args.get('sig')
+    if not exp or not sig or not _verify_signed_image_url(image_id, exp, sig):
+        return jsonify({"success": False, "error": "Forbidden"}), 403
+
+    image_row = db.get_note_image_by_id(image_id)
+    if not image_row or not image_row.get("is_active"):
+        return jsonify({"success": False, "error": "Obraz nie istnieje"}), 404
+
+    abs_path = NOTE_IMAGES_DIR / image_row["storage_path"]
+    if not abs_path.exists():
+        return jsonify({"success": False, "error": "Plik nie istnieje"}), 404
+
+    etag = image_row.get("sha256") or ""
+    if_none_match = (request.headers.get("If-None-Match") or "").strip('"')
+    if etag and if_none_match == etag:
+        return Response(status=304, headers={"ETag": f'"{etag}"'})
+
+    with open(abs_path, 'rb') as f:
+        file_bytes = f.read()
+
+    headers = {
+        "ETag": f'"{etag}"' if etag else "",
+        "Cache-Control": f"private, max-age={SIGNED_URL_TTL_SECONDS}",
+        "X-Content-Type-Options": "nosniff",
+        "Content-Security-Policy": "default-src 'none'",
+    }
+    if not headers["ETag"]:
+        headers.pop("ETag")
+
+    return Response(file_bytes, mimetype=image_row.get("mime_type") or "image/webp", headers=headers)
+
+
+@app.route('/api/note-images/metrics', methods=['GET'])
+def get_note_image_metrics():
+    return jsonify(
+        {
+            "success": True,
+            "metrics": {
+                "upload_success": _note_image_metrics.get("upload_success", 0),
+                "upload_fail": _note_image_metrics.get("upload_fail", 0),
+                "upload_429": _note_image_metrics.get("upload_429", 0),
+                "upload_413": _note_image_metrics.get("upload_413", 0),
+                "annotations_conflict_409": _note_image_metrics.get("annotations_conflict_409", 0),
+            },
+        }
+    )
 
 # ========================
 # ENDPOINTY PRODUKTÓW

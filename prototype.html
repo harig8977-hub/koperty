@@ -584,6 +584,44 @@
             border: 1px solid #2a2a2a;
         }
 
+        .operator-search-controls {
+            display: flex;
+            flex-direction: column;
+            gap: 16px;
+            align-items: flex-start;
+        }
+
+        .operator-search-input-wrap {
+            width: min(760px, 100%);
+            position: relative;
+        }
+
+        .operator-search-actions {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+        }
+
+        .operator-search-btn {
+            width: 220px;
+            min-width: 220px;
+            flex: 0 0 220px !important;
+            padding: 16px 20px !important;
+            font-size: 1.2rem !important;
+        }
+
+        @media (max-width: 560px) {
+            .operator-search-actions {
+                width: 100%;
+            }
+
+            .operator-search-btn {
+                width: 100%;
+                min-width: 0;
+                flex: 1 1 100% !important;
+            }
+        }
+
         .note-card {
             background: #252525;
             border-left: 4px solid var(--accent-orange);
@@ -672,6 +710,17 @@
             document.head.appendChild(fallbackScript);
         })();
     </script>
+    <script src="https://unpkg.com/konva@9.3.22/konva.min.js" type="text/javascript"></script>
+    <script>
+        (function ensureKonva() {
+            if (typeof Konva !== 'undefined') return;
+            const fallbackScript = document.createElement('script');
+            fallbackScript.src = 'vendor/konva.min.js';
+            fallbackScript.type = 'text/javascript';
+            document.head.appendChild(fallbackScript);
+        })();
+    </script>
+    <script src="image-annotation-editor.js"></script>
     <style>
         /* MODAL KAMERY */
         #scanner-modal {
@@ -1475,9 +1524,14 @@
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="slot-note-1" data-i18n="slot_note_placeholder"
                             style="flex: 1; background: #333; border: 1px solid #555; color: #fff; padding: 8px; font-size: 0.85rem; border-radius: 4px;">
+                        <button class="btn btn-blue" style="padding: 8px 10px; font-size: 0.8rem;"
+                            onclick="openNoteImagePicker('slot-1')">🖼️</button>
                         <button class="btn btn-green" style="padding: 8px 12px; font-size: 0.85rem;"
                             onclick="saveSlotNote(1)">💾</button>
                     </div>
+                    <input type="file" id="note-image-input-slot-1" accept="image/*" capture="environment" style="display:none"
+                        onchange="handleNoteImageSelected('slot-1', this)">
+                    <div id="note-images-slot-1" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
                 </div>
             </div>
             <!-- SLOT 2 -->
@@ -1501,9 +1555,14 @@
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="slot-note-2" data-i18n="slot_note_placeholder"
                             style="flex: 1; background: #333; border: 1px solid #555; color: #fff; padding: 8px; font-size: 0.85rem; border-radius: 4px;">
+                        <button class="btn btn-blue" style="padding: 8px 10px; font-size: 0.8rem;"
+                            onclick="openNoteImagePicker('slot-2')">🖼️</button>
                         <button class="btn btn-green" style="padding: 8px 12px; font-size: 0.85rem;"
                             onclick="saveSlotNote(2)">💾</button>
                     </div>
+                    <input type="file" id="note-image-input-slot-2" accept="image/*" capture="environment" style="display:none"
+                        onchange="handleNoteImageSelected('slot-2', this)">
+                    <div id="note-images-slot-2" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
                 </div>
             </div>
             <!-- SLOT 3 -->
@@ -1527,9 +1586,14 @@
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="slot-note-3" data-i18n="slot_note_placeholder"
                             style="flex: 1; background: #333; border: 1px solid #555; color: #fff; padding: 8px; font-size: 0.85rem; border-radius: 4px;">
+                        <button class="btn btn-blue" style="padding: 8px 10px; font-size: 0.8rem;"
+                            onclick="openNoteImagePicker('slot-3')">🖼️</button>
                         <button class="btn btn-green" style="padding: 8px 12px; font-size: 0.85rem;"
                             onclick="saveSlotNote(3)">💾</button>
                     </div>
+                    <input type="file" id="note-image-input-slot-3" accept="image/*" capture="environment" style="display:none"
+                        onchange="handleNoteImageSelected('slot-3', this)">
+                    <div id="note-images-slot-3" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
                 </div>
             </div>
             <!-- SLOT 4 -->
@@ -1553,9 +1617,14 @@
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="slot-note-4" data-i18n="slot_note_placeholder"
                             style="flex: 1; background: #333; border: 1px solid #555; color: #fff; padding: 8px; font-size: 0.85rem; border-radius: 4px;">
+                        <button class="btn btn-blue" style="padding: 8px 10px; font-size: 0.8rem;"
+                            onclick="openNoteImagePicker('slot-4')">🖼️</button>
                         <button class="btn btn-green" style="padding: 8px 12px; font-size: 0.85rem;"
                             onclick="saveSlotNote(4)">💾</button>
                     </div>
+                    <input type="file" id="note-image-input-slot-4" accept="image/*" capture="environment" style="display:none"
+                        onchange="handleNoteImageSelected('slot-4', this)">
+                    <div id="note-images-slot-4" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
                 </div>
             </div>
         </div>
@@ -1570,9 +1639,9 @@
                     style="margin: 0 0 20px 0; color: var(--accent-blue); font-size: 1.8rem; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px rgba(41, 121, 255, 0.5);" data-i18n="envelopeSelect">
                     📋 WYBIERZ KOPERTĘ DO PRACY</h3>
 
-                <div style="display: flex; gap: 60px; align-items: flex-end;">
+                <div class="operator-search-controls">
                     <!-- Pole do wpisania numeru -->
-                    <div style="width: 40%; position: relative;">
+                    <div class="operator-search-input-wrap">
                         <label
                             style="color: #aaa; font-size: 0.95rem; display: block; margin-bottom: 8px; font-weight: 600; text-transform: uppercase;"
                             data-i18n="envelope_number_label">Numer
@@ -1592,14 +1661,16 @@
                     </div>
 
                     <!-- Przyciski -->
-                    <button class="btn btn-blue" style="padding: 16px 35px; font-size: 1.3rem; flex: 0.7;"
-                        onclick="loadEnvelope()" data-i18n="btn_search">
-                        🔍 SZUKAJ
-                    </button>
-                    <button class="btn btn-green" style="padding: 16px 35px; font-size: 1.3rem; flex: 1;"
-                        onclick="simulateScan('load')" data-i18n="scan_btn">
-                        📡 SKANUJ
-                    </button>
+                    <div class="operator-search-actions">
+                        <button class="btn btn-blue operator-search-btn"
+                            onclick="loadEnvelope()" data-i18n="btn_search">
+                            🔍 SZUKAJ
+                        </button>
+                        <button class="btn btn-green operator-search-btn"
+                            onclick="simulateScan('load')" data-i18n="scan_btn">
+                            📡 SKANUJ
+                        </button>
+                    </div>
                 </div>
 
                 <!-- Komunikat błędu/sukcesu -->
@@ -1657,6 +1728,16 @@
                         style="width: 100%; height: 50px; background: rgba(0,0,0,0.4); border: 2px solid #555; border-radius: 10px; color: #fff; padding: 12px; font-size: 1rem; resize: none; margin-bottom: 15px;"
                         placeholder="Krótkie podsumowanie zmiany..." data-i18n="summary_placeholder"></textarea>
 
+                    <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px;">
+                        <button class="btn btn-blue" style="padding: 8px 14px; font-size: 0.9rem;"
+                            onclick="openNoteImagePicker('standard')">📷 ZRÓB ZDJĘCIE</button>
+                        <span style="color: #888; font-size: 0.8rem;">Maks. 3 zdjęcia / notatkę</span>
+                        <input type="file" id="note-image-input-standard" accept="image/*" capture="environment" style="display:none"
+                            onchange="handleNoteImageSelected('standard', this)">
+                    </div>
+                    <div id="note-images-standard"
+                        style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 14px;"></div>
+
                     <div style="display: flex; gap: 18px;">
                         <button class="btn btn-green" style="flex: 1; font-size: 1.2rem;" onclick="saveNote()" data-i18n="save_board_btn">💾 ZAPISZ
                             DO
@@ -1702,6 +1783,16 @@
                                 placeholder="np. 50">
                         </div>
                     </div>
+
+                    <div style="display: flex; gap: 10px; align-items: center; margin-top: 10px; margin-bottom: 12px;">
+                        <button class="btn btn-blue" style="padding: 8px 14px; font-size: 0.9rem;"
+                            onclick="openNoteImagePicker('pallet')">📷 ZRÓB ZDJĘCIE</button>
+                        <span style="color: #888; font-size: 0.8rem;">Maks. 3 zdjęcia / notatkę</span>
+                        <input type="file" id="note-image-input-pallet" accept="image/*" capture="environment" style="display:none"
+                            onchange="handleNoteImageSelected('pallet', this)">
+                    </div>
+                    <div id="note-images-pallet"
+                        style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 14px;"></div>
 
                     <div style="display: flex; gap: 15px;">
                         <button class="btn btn-green" style="flex: 1;" onclick="savePalletNote()" data-i18n="save_settings">💾 ZAPISZ
@@ -1936,61 +2027,47 @@
             }
         }
 
-        function savePalletNote() {
+        async function savePalletNote() {
             const pressure = document.getElementById('pal-pressure').value;
             const layers = document.getElementById('pal-layers').value;
             const type = document.getElementById('pal-type').value;
             const packs = document.getElementById('pal-packs').value;
+            const draftImages = noteDraftImages.pallet || [];
 
-            if (!pressure && !layers && !packs) {
+            if (!pressure && !layers && !packs && draftImages.length === 0) {
                 alert(t('fill_pallet_params'));
                 return;
             }
 
-            // Sformatuj dane do standardowego formatu notatki
-            const params = `NACISK: ${pressure} BAR\nWARSTWY: ${layers}\nPALETA: ${type}\nPAKSY: ${packs}`;
             const operator = document.querySelector('#screen-operator .op-header div div:first-child').innerText;
-
-            const noteData = {
-                params: params,
-                attention: "USTAWIENIA PALETYZACJI",
-                summary: `Zapisano konfigurację dla palety: ${type}`,
-                author: operator,
-                date: new Date().toLocaleDateString('pl-PL'),
-                time: new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
-            };
 
             if (!currentEnvelopeRCS) {
                 alert(t('load_envelope_first'));
                 return;
             }
 
-            const allNotes = loadNotesFromStorage();
-            if (!allNotes[currentEnvelopeRCS]) {
-                allNotes[currentEnvelopeRCS] = {};
+            try {
+                const created = await saveOperatorNoteAPI({
+                    envelope_id: currentEnvelopeRCS,
+                    machine_id: selectedMachineName,
+                    note_kind: 'pallet',
+                    note_data_json: {
+                        pressure,
+                        layers,
+                        type,
+                        packs,
+                        summary: `Zapisano konfigurację dla palety: ${type}`
+                    },
+                    author: operator
+                });
+
+                await uploadDraftImagesForNote('operator_note', created.note_id, 'pallet', operator);
+                await renderHistoria();
+                alert(t('settings_saved'));
+            } catch (error) {
+                console.error('savePalletNote error:', error);
+                alert(`Błąd zapisu ustawień: ${error.message || error}`);
             }
-            // Handle migration if it was an array previously (from previous task)
-            if (Array.isArray(allNotes[currentEnvelopeRCS])) {
-                 allNotes[currentEnvelopeRCS] = { 'UNKNOWN': allNotes[currentEnvelopeRCS] };
-            }
-
-            if (!allNotes[currentEnvelopeRCS][selectedMachineName]) {
-                allNotes[currentEnvelopeRCS][selectedMachineName] = [];
-            }
-
-            allNotes[currentEnvelopeRCS][selectedMachineName].push(noteData);
-
-            if (allNotes[currentEnvelopeRCS][selectedMachineName].length > 10) {
-                allNotes[currentEnvelopeRCS][selectedMachineName].shift();
-            }
-
-            localStorage.setItem(NOTES_KEY, JSON.stringify(allNotes));
-            renderHistoria();
-
-            // Wyczyść pola (opcjonalnie)
-            // document.getElementById('pal-pressure').value = "";
-
-            alert(t('settings_saved'));
         }
 
         function logout() {
@@ -2010,136 +2087,401 @@
             }
         }
 
-        // NOTATKI - przechowywanie w localStorage (TABLICA historii per RCS)
+        // NOTATKI OPERATORA - backend + obrazy
         const NOTES_KEY = 'koperty_historia_rcs';
+        const ENVELOPE_NOTES_KEY = 'koperty_envelope_notes';
+        const NOTES_MIGRATION_KEY = 'notes_backend_migrated_v2';
+        const noteDraftImages = { standard: [], pallet: [], 'slot-1': [], 'slot-2': [], 'slot-3': [], 'slot-4': [] };
+        const noteImageMetaCache = {};
+        const noteImageRenderContext = {};
         let currentEnvelopeRCS = null;
 
-        function loadNotesFromStorage() {
-            const stored = localStorage.getItem(NOTES_KEY);
-            return stored ? JSON.parse(stored) : {};
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            const color = type === 'error' ? '#ff1744' : (type === 'success' ? '#00e676' : '#2979ff');
+            toast.textContent = message;
+            toast.style.cssText = `position:fixed;right:20px;bottom:20px;background:#111;border:1px solid ${color};color:#fff;padding:10px 14px;border-radius:8px;z-index:5000;box-shadow:0 8px 20px rgba(0,0,0,.45);`;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3500);
         }
 
-        function saveNote() {
+        function cleanupLegacyNotesStorageOnce() {
+            if (localStorage.getItem(NOTES_MIGRATION_KEY) === '1') return;
+            localStorage.removeItem(NOTES_KEY);
+            localStorage.removeItem(ENVELOPE_NOTES_KEY);
+            localStorage.setItem(NOTES_MIGRATION_KEY, '1');
+            showToast('Stare notatki lokalne zostały wyczyszczone. System działa teraz na bazie serwera.', 'info');
+        }
+
+        cleanupLegacyNotesStorageOnce();
+        ['standard', 'pallet', 'slot-1', 'slot-2', 'slot-3', 'slot-4'].forEach(renderDraftImages);
+
+        function openNoteImagePicker(scope) {
+            const input = document.getElementById(`note-image-input-${scope}`);
+            if (input) input.click();
+        }
+
+        function _escapeHtml(text) {
+            return String(text || '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/\"/g, '&quot;')
+                .replace(/'/g, '&#039;');
+        }
+
+        function renderDraftImages(scope) {
+            const container = document.getElementById(`note-images-${scope}`);
+            if (!container) return;
+            const items = noteDraftImages[scope] || [];
+            container.innerHTML = items.map((item, idx) => `
+                <div style=\"position:relative;\">
+                    <img src=\"${item.previewUrl}\" style=\"width:70px;height:70px;object-fit:cover;border:1px solid #555;border-radius:6px;cursor:pointer;\" onclick=\"editDraftNoteImage('${scope}', ${idx})\" title=\"Edytuj adnotacje\" />
+                    <button onclick=\"removeDraftNoteImage('${scope}', ${idx})\" style=\"position:absolute;top:-7px;right:-7px;background:#442222;color:#fff;border:1px solid #733;border-radius:50%;width:20px;height:20px;cursor:pointer;\">×</button>
+                </div>
+            `).join('');
+        }
+
+        function removeDraftNoteImage(scope, index) {
+            if (!noteDraftImages[scope] || !noteDraftImages[scope][index]) return;
+            const item = noteDraftImages[scope][index];
+            if (item.previewUrl && item.previewUrl.startsWith('blob:')) URL.revokeObjectURL(item.previewUrl);
+            noteDraftImages[scope].splice(index, 1);
+            renderDraftImages(scope);
+        }
+
+        async function editDraftNoteImage(scope, index) {
+            const item = noteDraftImages[scope]?.[index];
+            if (!item) return;
+            await NoteImageEditor.open({
+                title: 'Adnotacje zdjęcia',
+                imageSource: item.compressedBlob,
+                annotations: item.annotations_json,
+                onSave: async (annotationsJson) => {
+                    item.annotations_json = annotationsJson || { objects: [] };
+                }
+            });
+        }
+
+        async function handleNoteImageSelected(scope, inputEl) {
+            try {
+                const file = inputEl.files && inputEl.files[0];
+                inputEl.value = '';
+                if (!file) return;
+                if (!file.type.startsWith('image/')) {
+                    alert('Wybierz plik graficzny.');
+                    return;
+                }
+                if (file.size > 10 * 1024 * 1024) {
+                    alert('Maksymalny rozmiar pliku to 10MB.');
+                    return;
+                }
+                if ((noteDraftImages[scope] || []).length >= 3) {
+                    alert('Limit 3 zdjęć na notatkę.');
+                    return;
+                }
+
+                const compressedBlob = await NoteImageEditor.compressImageFile(file, { maxDimension: 1600, quality: 0.82 });
+                const previewUrl = URL.createObjectURL(compressedBlob);
+                const draftItem = {
+                    originalName: file.name,
+                    compressedBlob,
+                    previewUrl,
+                    annotations_json: { version: 1, objects: [] }
+                };
+                noteDraftImages[scope].push(draftItem);
+                renderDraftImages(scope);
+                await editDraftNoteImage(scope, noteDraftImages[scope].length - 1);
+            } catch (error) {
+                console.error('Image pick error:', error);
+                alert('Nie udało się dodać zdjęcia.');
+            }
+        }
+
+        async function uploadNoteImageAPI(noteScope, noteId, draftItem, uploadedBy, orderIndex) {
+            const formData = new FormData();
+            formData.append('file', draftItem.compressedBlob, `${Date.now()}.webp`);
+            formData.append('note_scope', noteScope);
+            formData.append('note_id', String(noteId));
+            formData.append('annotations_json', JSON.stringify(draftItem.annotations_json || { objects: [] }));
+            formData.append('order_index', String(orderIndex));
+            formData.append('uploaded_by', uploadedBy || 'Nieznany');
+
+            const response = await fetch(`${API_BASE}/note-images`, {
+                method: 'POST',
+                body: formData
+            });
+            const result = await response.json();
+            if (response.status === 429) {
+                const retryAfter = response.headers.get('Retry-After');
+                throw new Error(`Limit uploadu przekroczony. Spróbuj ponownie za ${retryAfter || 60}s.`);
+            }
+            if (response.status === 413) {
+                throw new Error(result.error || 'Plik przekracza limit rozmiaru.');
+            }
+            if (!response.ok || !result.success) {
+                throw new Error(result.error || `HTTP ${response.status}`);
+            }
+            return result.image;
+        }
+
+        async function updateNoteImageAnnotationsAPI(imageId, annotationsJson, modifiedBy, expectedRevision) {
+            const response = await fetch(`${API_BASE}/note-images/${imageId}/annotations`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    annotations_json: annotationsJson || { objects: [] },
+                    modified_by: modifiedBy || 'Nieznany',
+                    expected_revision: expectedRevision
+                })
+            });
+            const result = await response.json();
+            if (response.status === 409) return { conflict: true, data: result };
+            if (!response.ok || !result.success) throw new Error(result.error || `HTTP ${response.status}`);
+            return { conflict: false, data: result };
+        }
+
+        async function getSignedImageUrl(imageId) {
+            const response = await fetch(`${API_BASE}/note-images/${imageId}/signed-url`);
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.error || `HTTP ${response.status}`);
+            return result.url;
+        }
+
+        async function deleteNoteImageAPI(imageId) {
+            const response = await fetch(`${API_BASE}/note-images/${imageId}`, { method: 'DELETE' });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.error || `HTTP ${response.status}`);
+            return true;
+        }
+
+        function _renderStoredImagesHtml(images, context) {
+            if (!images || images.length === 0) return '';
+            return `<div style=\"display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;\">${images.map((img) => {
+                noteImageMetaCache[img.id] = img;
+                noteImageRenderContext[img.id] = context;
+                const src = _escapeHtml(img.signed_url || '');
+                return `
+                    <div style=\"position:relative;\">
+                        <img src=\"${src}\" style=\"width:72px;height:72px;object-fit:cover;border:1px solid #444;border-radius:6px;cursor:pointer;\" onclick=\"editExistingNoteImage(${img.id})\" title=\"Edytuj adnotacje\" />
+                        <button onclick=\"deleteExistingNoteImage(${img.id})\" style=\"position:absolute;top:-7px;right:-7px;background:#442222;color:#fff;border:1px solid #733;border-radius:50%;width:20px;height:20px;cursor:pointer;\">×</button>
+                    </div>
+                `;
+            }).join('')}</div>`;
+        }
+
+        async function editExistingNoteImage(imageId) {
+            try {
+                const imageMeta = noteImageMetaCache[imageId];
+                if (!imageMeta) return;
+                const signedUrl = await getSignedImageUrl(imageId);
+                const operator = document.querySelector('#screen-operator .op-header div div:first-child')?.innerText || 'Nieznany';
+                await NoteImageEditor.open({
+                    title: 'Edycja adnotacji',
+                    imageSource: signedUrl,
+                    annotations: imageMeta.annotations_json || { objects: [] },
+                    onSave: async (annotationsJson) => {
+                        const updateResult = await updateNoteImageAnnotationsAPI(
+                            imageId,
+                            annotationsJson,
+                            operator,
+                            imageMeta.revision
+                        );
+                        if (updateResult.conflict) {
+                            showToast('Zdjęcie zostało zmienione przez innego użytkownika. Odśwież widok i spróbuj ponownie.', 'error');
+                            await refreshNoteImageContext(imageId);
+                            throw new Error('Conflict');
+                        }
+                        noteImageMetaCache[imageId] = updateResult.data.image;
+                        await refreshNoteImageContext(imageId);
+                    }
+                });
+            } catch (error) {
+                console.error('editExistingNoteImage error:', error);
+            }
+        }
+
+        async function deleteExistingNoteImage(imageId) {
+            if (!confirm('Usunąć zdjęcie z notatki?')) return;
+            try {
+                await deleteNoteImageAPI(imageId);
+                delete noteImageMetaCache[imageId];
+                await refreshNoteImageContext(imageId);
+            } catch (error) {
+                alert(`Nie udało się usunąć zdjęcia: ${error.message || error}`);
+            }
+        }
+
+        async function refreshNoteImageContext(imageId) {
+            const ctx = noteImageRenderContext[imageId];
+            if (!ctx) return;
+            if (ctx.type === 'history') {
+                await renderHistoria();
+            } else if (ctx.type === 'slot' && ctx.slotId) {
+                slotProductNotes[ctx.slotId] = null;
+                await renderSlotHistory(ctx.slotId);
+            }
+        }
+
+        async function saveOperatorNoteAPI(payload) {
+            const response = await fetch(`${API_BASE}/operator-notes`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.error || `HTTP ${response.status}`);
+            return result;
+        }
+
+        async function getOperatorNotesAPI(envelopeId, machineId, limit = 20, cursor = null) {
+            let url = `${API_BASE}/operator-notes/${encodeURIComponent(envelopeId)}/${encodeURIComponent(machineId)}?limit=${limit}`;
+            if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
+            const response = await fetch(url);
+            const result = await response.json();
+            if (!response.ok || !result.success) throw new Error(result.error || `HTTP ${response.status}`);
+            return result;
+        }
+
+        async function getAllOperatorNotesAPI(envelopeId, machineId, pageSize = 20, maxPages = 10) {
+            let cursor = null;
+            const allNotes = [];
+            for (let page = 0; page < maxPages; page += 1) {
+                const pageResult = await getOperatorNotesAPI(envelopeId, machineId, pageSize, cursor);
+                const chunk = pageResult.notes || [];
+                allNotes.push(...chunk);
+                if (!pageResult.next_cursor) break;
+                cursor = pageResult.next_cursor;
+            }
+            return allNotes;
+        }
+
+        async function uploadDraftImagesForNote(noteScope, noteId, draftScope, uploadedBy) {
+            const drafts = noteDraftImages[draftScope] || [];
+            for (let i = 0; i < drafts.length; i += 1) {
+                await uploadNoteImageAPI(noteScope, noteId, drafts[i], uploadedBy, i);
+                if (drafts[i].previewUrl && drafts[i].previewUrl.startsWith('blob:')) {
+                    URL.revokeObjectURL(drafts[i].previewUrl);
+                }
+            }
+            noteDraftImages[draftScope] = [];
+            renderDraftImages(draftScope);
+        }
+
+        async function saveNote() {
             const params = document.getElementById('note-params').value;
             const attention = document.getElementById('note-attention').value;
             const summary = document.getElementById('note-summary').value;
+            const draftImages = noteDraftImages.standard || [];
 
             if (!currentEnvelopeRCS) {
                 alert(t('load_envelope_first'));
                 return;
             }
 
-            if (!params && !attention && !summary) {
+            if (!params && !attention && !summary && draftImages.length === 0) {
                 alert(t('fill_one_field'));
                 return;
             }
 
-            // Pobierz aktualnego operatora z nagłówka
             const operator = document.querySelector('#screen-operator .op-header div div:first-child').innerText;
+            try {
+                const created = await saveOperatorNoteAPI({
+                    envelope_id: currentEnvelopeRCS,
+                    machine_id: selectedMachineName,
+                    note_kind: 'standard',
+                    note_data_json: {
+                        params,
+                        attention,
+                        summary
+                    },
+                    author: operator
+                });
 
-            const noteData = {
-                params: params,
-                attention: attention,
-                summary: summary,
-                author: operator,
-                date: new Date().toLocaleDateString('pl-PL'),
-                time: new Date().toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })
-            };
-
-            const allNotes = loadNotesFromStorage();
-            if (!allNotes[currentEnvelopeRCS]) {
-                allNotes[currentEnvelopeRCS] = {};
+                await uploadDraftImagesForNote('operator_note', created.note_id, 'standard', operator);
+                document.getElementById('note-params').value = '';
+                document.getElementById('note-attention').value = '';
+                document.getElementById('note-summary').value = '';
+                await renderHistoria();
+                alert(t('note_saved'));
+            } catch (error) {
+                console.error('saveNote error:', error);
+                alert(`Błąd zapisu notatki: ${error.message || error}`);
             }
-            // Handle migration
-            if (Array.isArray(allNotes[currentEnvelopeRCS])) {
-                 allNotes[currentEnvelopeRCS] = { 'UNKNOWN': allNotes[currentEnvelopeRCS] };
-            }
-
-            if (!allNotes[currentEnvelopeRCS][selectedMachineName]) {
-                allNotes[currentEnvelopeRCS][selectedMachineName] = [];
-            }
-
-            // Dodaj na KONIEC tablicy
-            allNotes[currentEnvelopeRCS][selectedMachineName].push(noteData);
-
-            // Ogranicz do 10 wpisów
-            if (allNotes[currentEnvelopeRCS][selectedMachineName].length > 10) {
-                allNotes[currentEnvelopeRCS][selectedMachineName].shift();
-            }
-
-            localStorage.setItem(NOTES_KEY, JSON.stringify(allNotes));
-
-            // Odśwież widok historii
-            renderHistoria();
-
-            // Wyczyść formularz
-            document.getElementById('note-params').value = '';
-            document.getElementById('note-attention').value = '';
-            document.getElementById('note-summary').value = '';
-
-            alert(t('note_saved'));
         }
 
-        function renderHistoria() {
+        async function renderHistoria() {
             const kontener = document.getElementById('historia-container');
-            const allNotes = loadNotesFromStorage();
-            
-            let historia = [];
-            if (currentEnvelopeRCS && allNotes[currentEnvelopeRCS]) {
-                // Check if it's the old array format
-                if (Array.isArray(allNotes[currentEnvelopeRCS])) {
-                    historia = allNotes[currentEnvelopeRCS]; // Backward compatibility or simple view
-                } else {
-                    // New object format: get notes for THIS machine
-                    historia = allNotes[currentEnvelopeRCS][selectedMachineName] || [];
-                }
-            }
+            if (!kontener) return;
 
-            // Wyczyść i dodaj nagłówek
-            kontener.innerHTML = `<h4 style="margin: 0 0 10px 0; color: var(--text-secondary); font-size: 0.85rem;">📜 ${t('historyTitle')} (${historia.length})</h4>`;
-
-            if (historia.length === 0) {
-                kontener.innerHTML += `<p style="color: #666; font-style: italic;">${t('noEntries')}</p>`;
+            kontener.innerHTML = `<h4 style=\"margin: 0 0 10px 0; color: var(--text-secondary); font-size: 0.85rem;\">📜 ${t('historyTitle')}</h4><p style=\"color:#666;\">Ładowanie...</p>`;
+            if (!currentEnvelopeRCS || !selectedMachineName) {
+                kontener.innerHTML = `<h4 style=\"margin: 0 0 10px 0; color: var(--text-secondary); font-size: 0.85rem;\">📜 ${t('historyTitle')}</h4><p style=\"color: #666; font-style: italic;\">${t('noEntries')}</p>`;
                 return;
             }
 
-            // Renderuj wpisy (kolejność w tablicy: 0=najstarszy, N=najnowszy -> wyświetlaj tak jak w tablicy, czyli najstarszy na górze)
-            historia.forEach(notatka => {
-                const karta = `
-                    <div style="background: #252525; border-left: 4px solid var(--accent-orange); padding: 12px; margin-bottom: 10px; border-radius: 8px;">
-                        <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-                            <span style="color: var(--accent-blue); font-weight: bold;">👤 ${notatka.author}</span>
-                            <span style="color: #666; font-size: 0.8rem;">📅 ${notatka.date}</span>
-                        </div>
-                        <div style="display: flex; gap: 15px; font-size: 0.85rem;">
-                            <div style="flex: 0.8; color: var(--accent-orange); font-family: monospace;">${(notatka.params || '-').replace(/\n/g, '<br>')}</div>
-                            <div style="flex: 1; color: #ccc;">${(notatka.attention || '-').replace(/\n/g, '<br>')}</div>
-                        </div>
-                        <div style="margin-top: 8px; padding-top: 8px; border-top: 1px solid #333; color: #aaa; font-size: 0.85rem;">
-                            📋 ${notatka.summary || '-'}
-                        </div>
-                    </div>
-                `;
-                kontener.innerHTML += karta;
-            });
+            try {
+                const historia = await getAllOperatorNotesAPI(currentEnvelopeRCS, selectedMachineName, 20, 15);
+                kontener.innerHTML = `<h4 style=\"margin: 0 0 10px 0; color: var(--text-secondary); font-size: 0.85rem;\">📜 ${t('historyTitle')} (${historia.length})</h4>`;
 
-            // Przewiń widok na sam dół (do najnowszych)
-            kontener.scrollTop = kontener.scrollHeight;
+                if (historia.length === 0) {
+                    kontener.innerHTML += `<p style=\"color: #666; font-style: italic;\">${t('noEntries')}</p>`;
+                    return;
+                }
+
+                historia.forEach((notatka) => {
+                    const noteData = notatka.note_data || {};
+                    let params = noteData.params || '-';
+                    let attention = noteData.attention || '-';
+                    let summary = noteData.summary || '-';
+
+                    if (notatka.note_kind === 'pallet') {
+                        params = `NACISK: ${noteData.pressure || '-'} BAR\\nWARSTWY: ${noteData.layers || '-'}\\nPALETA: ${noteData.type || '-'}\\nPAKSY: ${noteData.packs || '-'}`;
+                        attention = 'USTAWIENIA PALETYZACJI';
+                        summary = noteData.summary || 'Zapisano ustawienia paletyzacji';
+                    }
+
+                    const karta = `
+                        <div style=\"background: #252525; border-left: 4px solid var(--accent-orange); padding: 12px; margin-bottom: 10px; border-radius: 8px;\">
+                            <div style=\"display: flex; justify-content: space-between; margin-bottom: 8px;\">
+                                <span style=\"color: var(--accent-blue); font-weight: bold;\">👤 ${_escapeHtml(notatka.created_by || 'Nieznany')}</span>
+                                <span style=\"color: #666; font-size: 0.8rem;\">📅 ${_escapeHtml(notatka.created_at || '')}</span>
+                            </div>
+                            <div style=\"display: flex; gap: 15px; font-size: 0.85rem;\">
+                                <div style=\"flex: 0.8; color: var(--accent-orange); font-family: monospace; white-space: pre-wrap;\">${_escapeHtml(params)}</div>
+                                <div style=\"flex: 1; color: #ccc; white-space: pre-wrap;\">${_escapeHtml(attention)}</div>
+                            </div>
+                            <div style=\"margin-top: 8px; padding-top: 8px; border-top: 1px solid #333; color: #aaa; font-size: 0.85rem; white-space: pre-wrap;\">
+                                📋 ${_escapeHtml(summary)}
+                            </div>
+                            ${_renderStoredImagesHtml(notatka.images || [], { type: 'history' })}
+                        </div>
+                    `;
+                    kontener.innerHTML += karta;
+                });
+            } catch (error) {
+                kontener.innerHTML = `<h4 style=\"margin: 0 0 10px 0; color: var(--text-secondary); font-size: 0.85rem;\">📜 ${t('historyTitle')}</h4><p style=\"color:#ff6666;\">Błąd pobierania historii notatek.</p>`;
+            }
         }
 
-        function loadNotesForEnvelope(rcsNumber) {
+        async function loadNotesForEnvelope(rcsNumber) {
             currentEnvelopeRCS = rcsNumber;
-            // Show knowledge section
             const ks = document.getElementById('knowledge-section');
             if (ks) ks.style.display = 'flex';
-            // Renderuj historię dla tego RCS
-            renderHistoria();
+            await renderHistoria();
         }
 
         function hideNotesSection() {
             currentEnvelopeRCS = null;
             const ks = document.getElementById('knowledge-section');
-            if (ks) ks.style.display = 'none';
+            if (ks) ks.style.display = 'flex';
+            const kontener = document.getElementById('historia-container');
+            if (kontener) {
+                kontener.innerHTML = `
+                    <h4 style="margin: 0 0 10px 0; color: var(--text-secondary); font-size: 0.85rem;">📜 ${t('historyTitle')}</h4>
+                    <p style="color:#888; margin:0;">Załaduj kopertę, aby zobaczyć historię. Przycisk "📷 ZRÓB ZDJĘCIE" jest dostępny poniżej.</p>
+                `;
+            }
         }
 
         // --- LOGIKA MAGAZYNIERA ---
@@ -2502,26 +2844,8 @@
 
         // --- OBSŁUGA SLOTÓW PALETYZACJI ---
 
-        // Klucz do localStorage dla notatek kopert
-        const ENVELOPE_NOTES_KEY = 'koperty_envelope_notes';
-
         // Śledzenie załadowanych kopert w slotach
         const slotEnvelopes = { 1: null, 2: null, 3: null, 4: null };
-
-        // Funkcja do pobierania notatek koperty z localStorage
-        function getEnvelopeNotes(envelopeId) {
-            const stored = localStorage.getItem(ENVELOPE_NOTES_KEY);
-            const allNotes = stored ? JSON.parse(stored) : {};
-            return allNotes[envelopeId] || [];
-        }
-
-        // Funkcja do zapisywania notatek koperty do localStorage
-        function saveEnvelopeNotes(envelopeId, notes) {
-            const stored = localStorage.getItem(ENVELOPE_NOTES_KEY);
-            const allNotes = stored ? JSON.parse(stored) : {};
-            allNotes[envelopeId] = notes;
-            localStorage.setItem(ENVELOPE_NOTES_KEY, JSON.stringify(allNotes));
-        }
 
         async function saveSlotNote(slotId) {
             // WALIDACJA: Sprawdź czy slot ma załadowaną kopertę
@@ -2532,8 +2856,10 @@
 
             const noteInput = document.getElementById('slot-note-' + slotId);
             const noteText = noteInput.value.trim();
+            const draftScope = `slot-${slotId}`;
+            const draftImages = noteDraftImages[draftScope] || [];
 
-            if (!noteText) {
+            if (!noteText && draftImages.length === 0) {
                 alert(t('enter_note_content'));
                 return;
             }
@@ -2556,7 +2882,7 @@
             // Pobierz nazwę maszyny ze slotu (PALLETIZING lub z kontekstu)
             const machineId = 'PALLETIZING';  // Lub pobierz z kontekstu
 
-            console.log('Zapisuję notatkę:', { productCode, machineId, noteText, operator });
+            console.log('Zapisuję notatkę:', { productCode, machineId, noteText, operator, images: draftImages.length });
 
             // Zapisz do bazy SQL przez API
             const result = await saveProductMachineNoteAPI(productCode, machineId, noteText, operator);
@@ -2566,15 +2892,10 @@
             if (result.success) {
                 // Wyczyść input
                 noteInput.value = '';
-
-                // Zapisz w cache dla slotu
-                slotProductNotes[slotId] = {
-                    specific_note: {
-                        content: noteText,
-                        modified_by: operator,
-                        modified_at: new Date().toISOString()
-                    }
-                };
+                if (result.note_id && draftImages.length > 0) {
+                    await uploadDraftImagesForNote('product_machine_note', result.note_id, draftScope, operator);
+                }
+                slotProductNotes[slotId] = null;
 
                 // Odśwież widok
                 await renderSlotHistory(slotId);
@@ -2615,7 +2936,7 @@
             let html = '';
 
             // Wyświetl notatkę specyficzną dla maszyny
-            if (noteData.specific_note && noteData.specific_note.content) {
+            if (noteData.specific_note && (noteData.specific_note.content || (noteData.specific_note.images || []).length > 0)) {
                 const note = noteData.specific_note;
                 const modDate = note.modified_at ? new Date(note.modified_at).toLocaleString('pl-PL') : '';
                 html += `
@@ -2627,12 +2948,13 @@
                         <div style="color: #666; font-size: 0.65rem; margin-top: 4px;">
                             ${note.modified_by ? `${note.modified_by} • ` : ''}${modDate}
                         </div>
+                        ${_renderStoredImagesHtml(note.images || [], { type: 'slot', slotId })}
                     </div>
                 `;
             }
 
             // Wyświetl notatkę globalną (jeśli istnieje i jest inna niż specyficzna)
-            if (noteData.global_note && noteData.global_note.content) {
+            if (noteData.global_note && (noteData.global_note.content || (noteData.global_note.images || []).length > 0)) {
                 const note = noteData.global_note;
                 const modDate = note.modified_at ? new Date(note.modified_at).toLocaleString('pl-PL') : '';
                 html += `
@@ -2644,6 +2966,7 @@
                         <div style="color: #666; font-size: 0.65rem; margin-top: 4px;">
                             ${note.modified_by ? `${note.modified_by} • ` : ''}${modDate}
                         </div>
+                        ${_renderStoredImagesHtml(note.images || [], { type: 'slot', slotId })}
                     </div>
                 `;
             }
@@ -2798,14 +3121,18 @@
                 <div style="display: flex; gap: 8px; margin-bottom: 8px;">
                     <input type="text" id="slot-note-${slotId}" placeholder="Wpisz notatkę dla tego produktu..."
                         style="flex: 1; background: #333; border: 1px solid #555; color: #fff; padding: 8px; font-size: 0.85rem; border-radius: 4px;">
+                    <button class="btn btn-blue" style="padding: 8px 10px; font-size: 0.8rem;" onclick="openNoteImagePicker('slot-${slotId}')">🖼️</button>
                     <button class="btn btn-green" style="padding: 8px 12px; font-size: 0.85rem;" onclick="saveSlotNote(${slotId})">💾</button>
                 </div>
+                <input type="file" id="note-image-input-slot-${slotId}" accept="image/*" capture="environment" style="display:none" onchange="handleNoteImageSelected('slot-${slotId}', this)">
+                <div id="note-images-slot-${slotId}" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;"></div>
                 <!-- Przycisk zwolnienia -->
                 <button class="btn btn-orange" style="width: 100%; font-size: 0.85rem; padding: 8px;" onclick="releaseSlot(${slotId}, '${envelope.id}')">ZWOLNIJ SLOT</button>
             `;
 
             // Pobierz notatki z API i odśwież widok
             await renderSlotHistory(slotId);
+            renderDraftImages(`slot-${slotId}`);
 
             // Odśwież lokalną bazę kopert z API (synchronizacja)
             await initEnvelopesFromAPI();
@@ -2852,6 +3179,7 @@
 
                 // Wyczyść cache notatek dla tego slotu
                 slotProductNotes[slotId] = null;
+                noteDraftImages[`slot-${slotId}`] = [];
 
                 // Przywrócenie widoku inputa
                 content.innerHTML = `
@@ -2869,9 +3197,13 @@
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="slot-note-${slotId}" placeholder="Notatka..."
                             style="flex: 1; background: #333; border: 1px solid #555; color: #fff; padding: 8px; font-size: 0.85rem; border-radius: 4px;">
+                        <button class="btn btn-blue" style="padding: 8px 10px; font-size: 0.8rem;" onclick="openNoteImagePicker('slot-${slotId}')">🖼️</button>
                         <button class="btn btn-green" style="padding: 8px 12px; font-size: 0.85rem;" onclick="saveSlotNote(${slotId})">💾</button>
                     </div>
+                    <input type="file" id="note-image-input-slot-${slotId}" accept="image/*" capture="environment" style="display:none" onchange="handleNoteImageSelected('slot-${slotId}', this)">
+                    <div id="note-images-slot-${slotId}" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
                 `;
+                renderDraftImages(`slot-${slotId}`);
 
                 // Odśwież lokalną bazę kopert z API (synchronizacja)
                 await initEnvelopesFromAPI();

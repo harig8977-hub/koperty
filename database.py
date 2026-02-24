@@ -1,4 +1,5 @@
 import hashlib
+import json
 import secrets
 import sqlite3
 from typing import List, Dict, Optional, Any
@@ -146,6 +147,55 @@ class Database:
                 FOREIGN KEY(note_id) REFERENCES product_machine_notes(id)
             )
         ''')
+
+        # 5.1 Notatki operatora (zastępują localStorage)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS operator_notes (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                envelope_id TEXT NOT NULL,
+                machine_id TEXT NOT NULL,
+                note_kind TEXT NOT NULL CHECK(note_kind IN ('standard', 'pallet', 'slot')),
+                note_data_json TEXT NOT NULL,
+                created_by TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                modified_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                is_active INTEGER DEFAULT 1
+            )
+        ''')
+
+        # 5.2 Obrazy notatek (scope: operator_note lub product_machine_note)
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS note_images (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                note_scope TEXT NOT NULL CHECK(note_scope IN ('operator_note', 'product_machine_note')),
+                note_id INTEGER NOT NULL,
+                storage_path TEXT NOT NULL,
+                original_filename TEXT,
+                mime_type TEXT NOT NULL,
+                width INTEGER,
+                height INTEGER,
+                size_bytes INTEGER,
+                sha256 TEXT,
+                annotations_json TEXT,
+                order_index INTEGER DEFAULT 0,
+                revision INTEGER DEFAULT 1,
+                created_by TEXT,
+                modified_by TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                modified_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                is_active INTEGER DEFAULT 1
+            )
+        ''')
+
+        try:
+            cursor.execute('ALTER TABLE note_images ADD COLUMN modified_by TEXT')
+        except:
+            pass
+
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_operator_notes_cursor ON operator_notes(envelope_id, machine_id, created_at, id)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_operator_notes_created ON operator_notes(created_at)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_note_images_scope_note ON note_images(note_scope, note_id, is_active, order_index)')
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_note_images_created ON note_images(created_at)')
 
         # 6. Tabela ERROR_LOGS (Audyt Błędów - wg specyfikacji v2.0)
         # Rejestruje próby złamania procesu (duplikaty, bypass magazynu, itp.)
@@ -1577,6 +1627,326 @@ class Database:
         conn.close()
         
         return {"success": True, "deleted": deleted}
+
+    # ========================
+    # NOTATKI OPERATORA + ZDJECIA
+    # ========================
+
+    def create_operator_note(self, envelope_id: str, machine_id: str, note_kind: str, note_data: Dict[str, Any], author: str) -> Dict[str, Any]:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            payload = json.dumps(note_data, ensure_ascii=False)
+            cursor.execute(
+                '''
+                INSERT INTO operator_notes (envelope_id, machine_id, note_kind, note_data_json, created_by, modified_at)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                ''',
+                (envelope_id, machine_id, note_kind, payload, author)
+            )
+            note_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+            return {"success": True, "note_id": note_id}
+        except Exception as e:
+            conn.close()
+            return {"success": False, "error": str(e), "status": 500}
+
+    def get_operator_notes_paginated(self, envelope_id: str, machine_id: str, limit: int = 20, cursor_token: Optional[str] = None) -> Dict[str, Any]:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        limit = max(1, min(limit, 100))
+
+        where_sql = "WHERE envelope_id = ? AND machine_id = ? AND is_active = 1"
+        params: list[Any] = [envelope_id, machine_id]
+
+        if cursor_token:
+            try:
+                cursor_ts, cursor_id = cursor_token.split(",", 1)
+                cursor_id_int = int(cursor_id)
+                where_sql += " AND (created_at < ? OR (created_at = ? AND id < ?))"
+                params.extend([cursor_ts, cursor_ts, cursor_id_int])
+            except Exception:
+                conn.close()
+                return {"success": False, "error": "Nieprawidlowy cursor", "status": 400}
+
+        params.append(limit + 1)
+        cursor.execute(
+            f'''
+            SELECT id, envelope_id, machine_id, note_kind, note_data_json, created_by, created_at, modified_at
+            FROM operator_notes
+            {where_sql}
+            ORDER BY created_at DESC, id DESC
+            LIMIT ?
+            ''',
+            params
+        )
+
+        rows = cursor.fetchall()
+        conn.close()
+
+        has_next = len(rows) > limit
+        rows = rows[:limit]
+        notes: list[Dict[str, Any]] = []
+        for row in rows:
+            try:
+                note_data = json.loads(row["note_data_json"]) if row["note_data_json"] else {}
+            except Exception:
+                note_data = {}
+            notes.append(
+                {
+                    "id": row["id"],
+                    "envelope_id": row["envelope_id"],
+                    "machine_id": row["machine_id"],
+                    "note_kind": row["note_kind"],
+                    "note_data": note_data,
+                    "created_by": row["created_by"],
+                    "created_at": row["created_at"],
+                    "modified_at": row["modified_at"],
+                }
+            )
+
+        next_cursor = None
+        if has_next and rows:
+            last = rows[-1]
+            next_cursor = f'{last["created_at"]},{last["id"]}'
+
+        return {"success": True, "notes": notes, "next_cursor": next_cursor}
+
+    def soft_delete_operator_note(self, note_id: int) -> Dict[str, Any]:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute("UPDATE operator_notes SET is_active = 0, modified_at = CURRENT_TIMESTAMP WHERE id = ?", (note_id,))
+        updated = cursor.rowcount
+        conn.commit()
+        conn.close()
+        if updated == 0:
+            return {"success": False, "error": "Notatka nie istnieje", "status": 404}
+        return {"success": True}
+
+    def note_exists(self, note_scope: str, note_id: int) -> bool:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        if note_scope == "operator_note":
+            cursor.execute("SELECT id FROM operator_notes WHERE id = ? AND is_active = 1", (note_id,))
+        else:
+            cursor.execute("SELECT id FROM product_machine_notes WHERE id = ? AND is_active = 1", (note_id,))
+        row = cursor.fetchone()
+        conn.close()
+        return bool(row)
+
+    def get_note_images(self, note_scope: str, note_id: int) -> List[Dict[str, Any]]:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            '''
+            SELECT id, note_scope, note_id, storage_path, original_filename, mime_type, width, height, size_bytes,
+                   sha256, annotations_json, order_index, revision, created_by, modified_by, created_at, modified_at
+            FROM note_images
+            WHERE note_scope = ? AND note_id = ? AND is_active = 1
+            ORDER BY order_index ASC, id ASC
+            ''',
+            (note_scope, note_id)
+        )
+        rows = cursor.fetchall()
+        conn.close()
+        images: list[Dict[str, Any]] = []
+        for row in rows:
+            try:
+                annotations = json.loads(row["annotations_json"]) if row["annotations_json"] else {"objects": []}
+            except Exception:
+                annotations = {"objects": []}
+            images.append(
+                {
+                    "id": row["id"],
+                    "note_scope": row["note_scope"],
+                    "note_id": row["note_id"],
+                    "storage_path": row["storage_path"],
+                    "original_filename": row["original_filename"],
+                    "mime_type": row["mime_type"],
+                    "width": row["width"],
+                    "height": row["height"],
+                    "size_bytes": row["size_bytes"],
+                    "sha256": row["sha256"],
+                    "annotations_json": annotations,
+                    "order_index": row["order_index"],
+                    "revision": row["revision"],
+                    "created_by": row["created_by"],
+                    "modified_by": row["modified_by"],
+                    "created_at": row["created_at"],
+                    "modified_at": row["modified_at"],
+                }
+            )
+        return images
+
+    def get_note_image_by_id(self, image_id: int) -> Optional[Dict[str, Any]]:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            '''
+            SELECT id, note_scope, note_id, storage_path, original_filename, mime_type, width, height, size_bytes,
+                   sha256, annotations_json, order_index, revision, created_by, modified_by, created_at, modified_at, is_active
+            FROM note_images
+            WHERE id = ?
+            ''',
+            (image_id,)
+        )
+        row = cursor.fetchone()
+        conn.close()
+        if not row:
+            return None
+        try:
+            annotations = json.loads(row["annotations_json"]) if row["annotations_json"] else {"objects": []}
+        except Exception:
+            annotations = {"objects": []}
+        return {
+            "id": row["id"],
+            "note_scope": row["note_scope"],
+            "note_id": row["note_id"],
+            "storage_path": row["storage_path"],
+            "original_filename": row["original_filename"],
+            "mime_type": row["mime_type"],
+            "width": row["width"],
+            "height": row["height"],
+            "size_bytes": row["size_bytes"],
+            "sha256": row["sha256"],
+            "annotations_json": annotations,
+            "order_index": row["order_index"],
+            "revision": row["revision"],
+            "created_by": row["created_by"],
+            "modified_by": row["modified_by"],
+            "created_at": row["created_at"],
+            "modified_at": row["modified_at"],
+            "is_active": row["is_active"],
+        }
+
+    def create_note_image(
+        self,
+        note_scope: str,
+        note_id: int,
+        storage_path: str,
+        original_filename: str,
+        mime_type: str,
+        width: int,
+        height: int,
+        size_bytes: int,
+        sha256_hex: str,
+        annotations_json: Dict[str, Any],
+        order_index: int,
+        created_by: str,
+    ) -> Dict[str, Any]:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        try:
+            if not self.note_exists(note_scope, note_id):
+                conn.close()
+                return {"success": False, "error": "Notatka nie istnieje", "status": 404}
+
+            cursor.execute(
+                "SELECT COUNT(*) FROM note_images WHERE note_scope = ? AND note_id = ? AND is_active = 1",
+                (note_scope, note_id),
+            )
+            active_count = cursor.fetchone()[0]
+            if active_count >= 3:
+                conn.close()
+                return {"success": False, "error": "Limit 3 zdjec na notatke", "status": 400}
+
+            payload = json.dumps(annotations_json or {"objects": []}, ensure_ascii=False)
+            cursor.execute(
+                '''
+                INSERT INTO note_images (
+                    note_scope, note_id, storage_path, original_filename, mime_type, width, height,
+                    size_bytes, sha256, annotations_json, order_index, revision, created_by, modified_by, modified_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, CURRENT_TIMESTAMP)
+                ''',
+                (
+                    note_scope,
+                    note_id,
+                    storage_path,
+                    original_filename,
+                    mime_type,
+                    width,
+                    height,
+                    size_bytes,
+                    sha256_hex,
+                    payload,
+                    order_index,
+                    created_by,
+                    created_by,
+                ),
+            )
+            image_id = cursor.lastrowid
+            conn.commit()
+            conn.close()
+            return {"success": True, "image_id": image_id}
+        except Exception as e:
+            conn.close()
+            return {"success": False, "error": str(e), "status": 500}
+
+    def update_note_image_annotations(
+        self,
+        image_id: int,
+        annotations_json: Dict[str, Any],
+        modified_by: str,
+        expected_revision: int,
+    ) -> Dict[str, Any]:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            '''
+            SELECT revision, annotations_json
+            FROM note_images
+            WHERE id = ? AND is_active = 1
+            ''',
+            (image_id,),
+        )
+        row = cursor.fetchone()
+        if not row:
+            conn.close()
+            return {"success": False, "error": "Obraz nie istnieje", "status": 404}
+
+        current_revision = int(row["revision"] or 1)
+        if current_revision != int(expected_revision):
+            try:
+                current_annotations = json.loads(row["annotations_json"]) if row["annotations_json"] else {"objects": []}
+            except Exception:
+                current_annotations = {"objects": []}
+            conn.close()
+            return {
+                "success": False,
+                "error": "Conflict",
+                "status": 409,
+                "current_revision": current_revision,
+                "current_annotations_json": current_annotations,
+            }
+
+        payload = json.dumps(annotations_json or {"objects": []}, ensure_ascii=False)
+        next_revision = current_revision + 1
+        cursor.execute(
+            '''
+            UPDATE note_images
+            SET annotations_json = ?, revision = ?, modified_by = ?, modified_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND is_active = 1
+            ''',
+            (payload, next_revision, modified_by, image_id),
+        )
+        conn.commit()
+        conn.close()
+        return {"success": True, "revision": next_revision}
+
+    def soft_delete_note_image(self, image_id: int) -> Dict[str, Any]:
+        conn = self.get_connection()
+        cursor = conn.cursor()
+        cursor.execute(
+            "UPDATE note_images SET is_active = 0, modified_at = CURRENT_TIMESTAMP WHERE id = ? AND is_active = 1",
+            (image_id,),
+        )
+        updated = cursor.rowcount
+        conn.commit()
+        conn.close()
+        if updated == 0:
+            return {"success": False, "error": "Obraz nie istnieje", "status": 404}
+        return {"success": True}
 
 # Helper do szybkiego użycia
 db = Database()

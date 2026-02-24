@@ -20,3 +20,7 @@ venv/
 # Optional local database backups
 *.db-shm
 *.db-wal
+
+# Runtime uploaded images/backups
+data/note_images/
+data/backups/
