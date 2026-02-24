@@ -1737,7 +1737,8 @@ def generate_all_histories():
 if __name__ == '__main__':
     init_demo_envelopes()
     port = int(os.environ.get('PORT', 5000))
+    is_production = APP_ENV == 'production'
     print(f"\n🚀 Serwer API uruchomiony na http://localhost:{port}")
     print("📄 Otwórz prototype.html w przeglądarce")
     print("   (upewnij się, że serwer działa w tle)\n")
-    app.run(host='0.0.0.0', debug=True, use_reloader=False, port=port)
+    app.run(host='0.0.0.0', debug=not is_production, use_reloader=False, port=port)

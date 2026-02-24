@@ -6,3 +6,8 @@ services:
     autoDeploy: true
     buildCommand: pip install -r requirements.txt
     startCommand: python api_server.py
+    envVars:
+      - key: APP_ENV
+        value: production
+      - key: IMAGE_SIGNING_SECRET
+        generateValue: true
