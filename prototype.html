@@ -32,7 +32,8 @@
             display: flex;
             flex-direction: column;
             height: 100vh;
-            overflow: hidden;
+            overflow-x: hidden;
+            overflow-y: auto;
         }
 
         /* --- UTILS --- */
@@ -323,11 +324,12 @@
 
         /* 1. ROLE SELECTION */
         #screen-role {
-            flex: 1;
+            flex: 0 0 auto;
+            min-height: 100vh;
             gap: 30px;
             background: radial-gradient(circle at center, #2c2c2c 0%, #121212 100%);
             justify-content: flex-start;
-            overflow-y: auto;
+            overflow-y: visible;
             padding: 80px 20px 30px;
             box-sizing: border-box;
         }
@@ -516,8 +518,29 @@
         /* 3. OPERATOR WORKSTATION */
         #screen-operator {
             flex: 1;
+            min-height: 100vh;
             padding: 20px;
             overflow-y: auto;
+            overflow-x: hidden;
+            box-sizing: border-box;
+            -webkit-overflow-scrolling: touch;
+        }
+
+        #operator-standard-view {
+            min-height: 0;
+            overflow: visible;
+        }
+
+        #operator-palletizing-view {
+            align-content: start;
+            height: auto !important;
+            min-height: 0;
+            overflow: visible;
+        }
+
+        #knowledge-section {
+            height: auto !important;
+            min-height: 400px;
         }
 
         .op-header {
@@ -684,6 +707,17 @@
             z-index: 100;
         }
 
+        .global-back-btn {
+            position: fixed;
+            top: 14px;
+            left: 14px;
+            z-index: 3000;
+            border: 1px solid #555;
+            font-size: 0.95rem;
+            font-weight: 700;
+            letter-spacing: 0.5px;
+        }
+
         /* WAREHOUSE ZONE BUTTONS */
         .btn-zone {
             background: #333;
@@ -800,6 +834,10 @@
         <button class="close-scanner-btn" onclick="closeScanner()" data-i18n="close_camera">ZAMKNIJ KAMERĘ</button>
     </div>
 
+    <button id="global-back-btn" class="back-btn global-back-btn hidden" type="button" onclick="goBack()">
+        ← COFNIJ
+    </button>
+
 
 
     <!-- 1. EKRAN WYBORU ROLI -->
@@ -847,7 +885,6 @@
 
     <!-- 1.5 EKRAN WYBORU MASZYNY -->
     <div id="screen-machine-select" class="hidden flex center col full-height" style="background: #1a1a1a;">
-        <div class="back-btn" onclick="showRoleSelection()" title="Wróć do wyboru roli">⌂</div>
         <h2 style="margin-bottom: 20px; color: #fff;" data-i18n="select_machine">WYBIERZ SWOJĄ MASZYNĘ</h2>
 
         <!-- Language Switcher -->
@@ -921,8 +958,6 @@
 
     <!-- 2.5 EKRAN MAGAZYNU - GŁÓWNY (po zalogowaniu) -->
     <div id="screen-warehouse" class="hidden flex col">
-        <div class="back-btn" onclick="showRoleSelection()" title="Wróć do menu głównego"
-            style="position: absolute; top: 10px; left: 10px; z-index: 999;">⌂</div>
         <div class="split-container">
             <!-- LEWA: WYSZUKIWARKA KOPERT -->
             <div class="split-pane warehouse-search-pane" style="flex: 0.4; background: #1a1a1a;">
@@ -1814,7 +1849,9 @@
             machineSelect: document.getElementById('screen-machine-select'),
             pin: document.getElementById('screen-pin')
         };
-        // backBtn removed from UI
+        const navigationHistory = [];
+        let currentScreenKey = 'role';
+        // Globalny przycisk cofania sterowany historią ekranów
 
         // Domyślna lista maszyn (fallback, gdy API niedostępne)
         const DEFAULT_MACHINES = [
@@ -1848,6 +1885,40 @@
         function hideAll() {
             Object.values(screens).forEach(s => s.classList.add('hidden'));
         }
+
+        function updateBackButton() {
+            const backBtn = document.getElementById('global-back-btn');
+            if (!backBtn) return;
+            const canGoBack = currentScreenKey !== 'role' && navigationHistory.length > 0;
+            backBtn.classList.toggle('hidden', !canGoBack);
+        }
+
+        function navigateToScreen(screenKey, { recordHistory = true, clearHistory = false } = {}) {
+            if (!screens[screenKey]) return;
+
+            if (clearHistory) {
+                navigationHistory.length = 0;
+            }
+
+            if (recordHistory && currentScreenKey && currentScreenKey !== screenKey) {
+                navigationHistory.push(currentScreenKey);
+                if (navigationHistory.length > 50) navigationHistory.shift();
+            }
+
+            hideAll();
+            screens[screenKey].classList.remove('hidden');
+            currentScreenKey = screenKey;
+            updateBackButton();
+            window.scrollTo(0, 0);
+        }
+
+        function goBack() {
+            if (navigationHistory.length === 0) return;
+            const previousScreen = navigationHistory.pop();
+            navigateToScreen(previousScreen, { recordHistory: false });
+        }
+
+        updateBackButton();
 
         async function loadMachinesFromAPI() {
             try {
@@ -1898,15 +1969,14 @@
             });
         }
 
-        function showRoleSelection() {
-            hideAll();
-            screens.role.classList.remove('hidden');
-            // backBtn removed
+        function showRoleSelection(options = {}) {
+            const { recordHistory = false, clearHistory = true } = options;
+            navigateToScreen('role', { recordHistory, clearHistory });
         }
 
-        function showWarehouse() {
-            hideAll();
-            screens.warehouse.classList.remove('hidden');
+        function showWarehouse(options = {}) {
+            const { recordHistory = true } = options;
+            navigateToScreen('warehouse', { recordHistory });
 
             // Domyślnie pokaż panel logowania na prawo
             document.getElementById('warehouse-login-view').classList.remove('hidden');
@@ -1915,12 +1985,11 @@
             document.getElementById('warehouse-pin-error').style.opacity = "0";
         }
 
-        async function showOperator() {
-            hideAll();
+        async function showOperator(options = {}) {
+            const { recordHistory = true } = options;
             await loadMachinesFromAPI();
             renderMachineButtons(); // Odśwież widok przycisków
-            screens.machineSelect.classList.remove('hidden');
-            // backBtn removed
+            navigateToScreen('machineSelect', { recordHistory });
 
             // Symulacja "żywego" systemu - dodajmy kogoś po chwili
             if (!lockedMachines['ETERNA']) {
@@ -1931,11 +2000,11 @@
             }
         }
 
-        function selectMachine(machineName) {
+        function selectMachine(machineName, options = {}) {
+            const { recordHistory = true } = options;
             selectedMachineName = machineName;
             // Przejdź do ekranu PIN zamiast od razu do operatora
-            hideAll();
-            screens.pin.classList.remove('hidden');
+            navigateToScreen('pin', { recordHistory });
             document.getElementById('pin-machine-name').innerText = machineName;
             document.getElementById('pin-input').value = "";
             document.getElementById('pin-error').style.opacity = "0";
@@ -1976,7 +2045,7 @@
                     const operatorName = selectedMachineName;
                     lockedMachines[selectedMachineName] = operatorName;
 
-                    hideAll();
+                    navigateToScreen('operator', { recordHistory: true });
 
                     // Ustaw dane na ekranie
                     document.querySelector('#screen-operator .op-header div div:first-child').innerText = operatorName.toUpperCase();
@@ -1987,7 +2056,6 @@
                     shiftBadge.removeAttribute('data-i18n');
                     shiftBadge.innerText = "PIN OK";
 
-                    screens.operator.classList.remove('hidden');
                     // Notes are loaded when envelope is loaded, not when machine is selected
 
                     // Pamiętaj operatora
@@ -2076,14 +2144,14 @@
                 delete lockedMachines[selectedMachineName];
 
                 alert(t('logout_success'));
-                showOperator(); // Wróć do wyboru maszyny
+                showOperator({ recordHistory: false }); // Wróć do wyboru maszyny
             }
         }
 
         function logoutToHome() {
             if (confirm("Czy na pewno chcesz się wylogować i wrócić do menu głównego?")) {
                 delete lockedMachines[selectedMachineName];
-                showRoleSelection();
+                showRoleSelection({ recordHistory: false, clearHistory: true });
             }
         }
 
