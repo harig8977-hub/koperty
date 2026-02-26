@@ -1997,6 +1997,133 @@
             currentScreenKey = screenKey;
             updateBackButton();
             window.scrollTo(0, 0);
+            saveSession();
+        }
+
+        // === SESSION PERSISTENCE (localStorage) ===
+        const SESSION_KEY = 'koperty_session';
+
+        function saveSession() {
+            try {
+                const session = {
+                    screen: currentScreenKey,
+                    machine: selectedMachineName || null,
+                    operator: currentOperator || null,
+                    warehouseUser: currentWarehouseUser || null,
+                    warehouseView: currentWarehouseView || 'out',
+                    timestamp: Date.now(),
+                };
+                localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+            } catch (e) {
+                console.debug('Session save failed:', e);
+            }
+        }
+
+        function clearSession() {
+            try {
+                localStorage.removeItem(SESSION_KEY);
+            } catch (e) {
+                console.debug('Session clear failed:', e);
+            }
+        }
+
+        async function restoreSession() {
+            try {
+                const raw = localStorage.getItem(SESSION_KEY);
+                if (!raw) return;
+                const session = JSON.parse(raw);
+                if (!session || !session.screen) return;
+
+                // Session expires after 12 hours
+                if (Date.now() - session.timestamp > 12 * 60 * 60 * 1000) {
+                    clearSession();
+                    return;
+                }
+
+                const targetScreen = session.screen;
+
+                // Restore operator session (machine selected + PIN verified)
+                if (targetScreen === 'operator' && session.machine) {
+                    selectedMachineName = session.machine;
+                    currentOperator = session.operator || { machine: session.machine };
+                    lockedMachines[session.machine] = session.machine;
+
+                    await loadMachinesFromAPI();
+
+                    navigateToScreen('operator', { recordHistory: false, clearHistory: true });
+
+                    // Restore UI state
+                    const opHeader = document.querySelector('#screen-operator .op-header div div:first-child');
+                    if (opHeader) opHeader.innerText = session.machine.toUpperCase();
+                    const lblMachine = document.getElementById('lbl-machine-name');
+                    if (lblMachine) lblMachine.innerText = session.machine;
+                    const shiftBadge = document.getElementById('operator-shift-badge');
+                    if (shiftBadge) {
+                        shiftBadge.removeAttribute('data-i18n');
+                        shiftBadge.innerText = 'PIN OK';
+                    }
+
+                    // Set correct view (palletizing vs standard)
+                    if (session.machine === 'PALLETIZING') {
+                        document.getElementById('operator-palletizing-view').classList.remove('hidden');
+                        document.getElementById('operator-standard-view').classList.add('hidden');
+                        document.getElementById('palletizing-notes-form').classList.remove('hidden');
+                        document.getElementById('standard-notes-form').classList.add('hidden');
+                    } else {
+                        document.getElementById('operator-palletizing-view').classList.add('hidden');
+                        document.getElementById('operator-standard-view').classList.remove('hidden');
+                        document.getElementById('palletizing-notes-form').classList.add('hidden');
+                        document.getElementById('standard-notes-form').classList.remove('hidden');
+                    }
+
+                    checkMachineState(session.machine);
+                    console.log('✅ Sesja przywrócona: Operator na', session.machine);
+                    return;
+                }
+
+                // Restore warehouse session (logged in)
+                if (targetScreen === 'warehouse' && session.warehouseUser) {
+                    currentWarehouseUser = session.warehouseUser;
+
+                    navigateToScreen('warehouse', { recordHistory: false, clearHistory: true });
+
+                    // Show logged-in view
+                    document.getElementById('warehouse-login-view').classList.add('hidden');
+                    document.getElementById('warehouse-ops-view').classList.remove('hidden');
+
+                    // Restore admin buttons if admin
+                    if (session.warehouseUser === 'ADMINISTRATOR') {
+                        document.getElementById('btn-admin-panel').classList.remove('hidden');
+                        document.getElementById('btn-machine-panel').classList.remove('hidden');
+                    }
+
+                    // Restore warehouse view (out/in)
+                    if (session.warehouseView === 'in') {
+                        currentWarehouseView = 'out'; // toggleWarehouseView will flip it
+                        toggleWarehouseView();
+                    }
+
+                    loadReturnCartList('out');
+                    loadReturnCartList('in');
+
+                    console.log('✅ Sesja przywrócona: Magazyn jako', session.warehouseUser);
+                    return;
+                }
+
+                // Restore machine select screen
+                if (targetScreen === 'machineSelect') {
+                    await loadMachinesFromAPI();
+                    renderMachineButtons();
+                    navigateToScreen('machineSelect', { recordHistory: false, clearHistory: true });
+                    console.log('✅ Sesja przywrócona: Wybór maszyny');
+                    return;
+                }
+
+                // For other screens, just go to main menu
+            } catch (e) {
+                console.error('Session restore failed:', e);
+                clearSession();
+            }
         }
 
         function goBack() {
@@ -2147,6 +2274,7 @@
 
                     // Pamiętaj operatora
                     currentOperator = { machine: selectedMachineName };
+                    saveSession();
 
                     // Odtwórz stan maszyny z bazy danych (czy jest w trakcie produkcji?)
                     checkMachineState(selectedMachineName);
@@ -2229,6 +2357,7 @@
             if (confirm("Czy na pewno chcesz się wylogować i zwolnić maszynę?")) {
                 // Zwolnij blokadę
                 delete lockedMachines[selectedMachineName];
+                clearSession();
 
                 alert(t('logout_success'));
                 showOperator({ recordHistory: false }); // Wróć do wyboru maszyny
@@ -2238,6 +2367,7 @@
         function logoutToHome() {
             if (confirm("Czy na pewno chcesz się wylogować i wrócić do menu głównego?")) {
                 delete lockedMachines[selectedMachineName];
+                clearSession();
                 showRoleSelection({ recordHistory: false, clearHistory: true });
             }
         }
@@ -3630,6 +3760,7 @@
                         document.getElementById('machine-management-panel').classList.add('hidden');
                         document.getElementById('warehouse-normal-panel').classList.remove('hidden');
                     }
+                    saveSession();
                 } else {
                     const err = document.getElementById('warehouse-pin-error');
                     err.style.opacity = "1";
@@ -3672,6 +3803,7 @@
         function logoutWarehouse() {
             if (confirm('Wylogować z magazynu?')) {
                 currentWarehouseUser = null;
+                clearSession();
                 document.getElementById('warehouse-ops-view').classList.add('hidden');
                 document.getElementById('warehouse-login-view').classList.remove('hidden');
                 document.getElementById('warehouse-pin-input').value = "";
@@ -5769,6 +5901,10 @@
 </div>
 
 <script src="product-management.js"></script>
+<script>
+    // Restore session after page load
+    restoreSession();
+</script>
 </body>
 
 </html>
