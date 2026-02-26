@@ -4771,14 +4771,35 @@
                 const borderColor = isFound ? 'var(--accent-green)' : '#555';
                 const icon = isFound ? '✅' : '⏳';
 
+                // Formatyzuj lokalizację na podstawie statusu
+                let locationText = '';
+                if (item.status === 'MAGAZYN') {
+                    locationText = `MAGAZYN ${item.location || ''}`.trim();
+                } else if (item.status === 'SHOP_FLOOR') {
+                    locationText = 'SHOP FLOOR';
+                } else if (item.status) {
+                    locationText = item.status;
+                } else {
+                    locationText = 'Brak danych';
+                }
+
+                // Dodaj kolorystykę dla statusu (opcjonalnie)
+                const statusColor = (item.status === 'MAGAZYN') ? '#66ff66' : ((item.status === 'SHOP_FLOOR') ? '#66b3ff' : '#aaaaaa');
+
                 return `
                     <div style="background: ${bgColor}; padding: 8px; margin-bottom: 6px; border-radius: 4px; border-left: 3px solid ${borderColor}; display: flex; justify-content: space-between; align-items: center;">
                         <div style="flex: 1;">
-                            <div style="color: #fff; font-size: 0.85rem; font-weight: bold;">${icon} ${item.envelope_id}</div>
-                            ${isFound ? `<div style="color: #666; font-size: 0.7rem;">${new Date(item.found_at).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}</div>` : ''}
+                            <div style="color: #fff; font-size: 0.85rem; font-weight: bold;">
+                                ${icon} ${item.rcs_id || item.envelope_id} 
+                                <span style="font-weight: normal; margin-left: 8px; color: ${statusColor}; font-size: 0.75rem;">[${locationText}]</span>
+                            </div>
+                            <div style="color: #bbb; font-size: 0.75rem; margin-top: 3px;">
+                                ${item.company_name || 'Nieznana firma'} | ${item.product_name || 'Nieznany produkt'}
+                            </div>
+                            ${isFound ? `<div style="color: #666; font-size: 0.7rem; margin-top: 2px;">Znaleziono: ${new Date(item.found_at).toLocaleTimeString('pl-PL', { hour: '2-digit', minute: '2-digit' })}</div>` : ''}
                         </div>
                         <button onclick="deleteSearchItem(${item.id}, '${type}')" class="btn" 
-                            style="padding: 4px 8px; font-size: 0.7rem; background: var(--accent-red);">
+                            style="padding: 4px 8px; font-size: 0.7rem; background: var(--accent-red); margin-left: 10px;">
                             ❌
                         </button>
                     </div>

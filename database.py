@@ -1495,18 +1495,26 @@ class Database:
         
         if user_id:
             cursor.execute('''
-                SELECT id, envelope_id, priority, found, found_at, created_at
-                FROM search_lists
-                WHERE date = ? AND (user_id = ? OR user_id IS NULL)
-                ORDER BY priority DESC, created_at ASC
+                SELECT s.id, s.envelope_id, s.priority, s.found, s.found_at, s.created_at,
+                       e.status, e.current_holder_id as location,
+                       p.company_name, p.product_name, p.rcs_id
+                FROM search_lists s
+                LEFT JOIN envelopes e ON s.envelope_id = e.unique_key
+                LEFT JOIN products p ON e.product_id = p.id
+                WHERE s.date = ? AND (s.user_id = ? OR s.user_id IS NULL)
+                ORDER BY s.priority DESC, s.created_at ASC
             ''', (today, user_id))
         else:
             # Wspólna lista
             cursor.execute('''
-                SELECT id, envelope_id, priority, found, found_at, created_at
-                FROM search_lists
-                WHERE date = ? AND user_id IS NULL
-                ORDER BY priority DESC, created_at ASC
+                SELECT s.id, s.envelope_id, s.priority, s.found, s.found_at, s.created_at,
+                       e.status, e.current_holder_id as location,
+                       p.company_name, p.product_name, p.rcs_id
+                FROM search_lists s
+                LEFT JOIN envelopes e ON s.envelope_id = e.unique_key
+                LEFT JOIN products p ON e.product_id = p.id
+                WHERE s.date = ? AND s.user_id IS NULL
+                ORDER BY s.priority DESC, s.created_at ASC
             ''', (today,))
         
         rows = cursor.fetchall()
