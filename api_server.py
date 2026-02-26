@@ -723,8 +723,11 @@ def handle_product_machine_note(product_code, machine_id):
         })
 
 
-@app.route('/api/operator-notes/<path:envelope_id>/<path:machine_id>', methods=['GET'])
-def get_operator_notes(envelope_id, machine_id):
+@app.route('/api/operator-notes/<path:envelope_id>', methods=['GET'])
+def get_operator_notes(envelope_id):
+    machine_id = request.args.get('machine_id', '')
+    if not machine_id:
+        return jsonify({"success": False, "error": "Wymagany parametr machine_id"}), 400
     limit = request.args.get('limit', 20, type=int)
     limit = max(1, min(limit, 100))
     cursor_raw = request.args.get('cursor')
@@ -749,6 +752,7 @@ def get_operator_notes(envelope_id, machine_id):
                 "created_by": note["created_by"],
                 "created_at": note["created_at"],
                 "modified_at": note["modified_at"],
+                "rcs_id": note.get("rcs_id"),
                 "images": [_serialize_image_meta(img) for img in images],
             }
         )
@@ -789,6 +793,7 @@ def create_operator_note():
             "envelope_id": envelope_id,
             "machine_id": machine_id,
             "note_kind": note_kind,
+            "rcs_id": result.get("rcs_id"),
         }
     )
 

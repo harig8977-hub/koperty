@@ -197,6 +197,24 @@ class Database:
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_note_images_scope_note ON note_images(note_scope, note_id, is_active, order_index)')
         cursor.execute('CREATE INDEX IF NOT EXISTS idx_note_images_created ON note_images(created_at)')
 
+        # Migracja: dodaj kolumnę rcs_id do operator_notes jeśli nie istnieje
+        try:
+            cursor.execute('ALTER TABLE operator_notes ADD COLUMN rcs_id TEXT')
+        except:
+            pass  # Kolumna już istnieje
+
+        # Indeks na rcs_id (po migracji)
+        cursor.execute('CREATE INDEX IF NOT EXISTS idx_operator_notes_rcs ON operator_notes(rcs_id)')
+
+        # Backfill: uzupełnij rcs_id w istniejących notatkach operatora
+        cursor.execute('''
+            UPDATE operator_notes
+            SET rcs_id = (
+                SELECT e.rcs_id FROM envelopes e WHERE e.unique_key = operator_notes.envelope_id
+            )
+            WHERE rcs_id IS NULL
+        ''')
+
         # 6. Tabela ERROR_LOGS (Audyt Błędów - wg specyfikacji v2.0)
         # Rejestruje próby złamania procesu (duplikaty, bypass magazynu, itp.)
         cursor.execute('''
@@ -1636,18 +1654,23 @@ class Database:
         conn = self.get_connection()
         cursor = conn.cursor()
         try:
+            # Resolve rcs_id from envelopes table
+            cursor.execute('SELECT rcs_id FROM envelopes WHERE unique_key = ?', (envelope_id,))
+            env_row = cursor.fetchone()
+            rcs_id = env_row['rcs_id'] if env_row else None
+
             payload = json.dumps(note_data, ensure_ascii=False)
             cursor.execute(
                 '''
-                INSERT INTO operator_notes (envelope_id, machine_id, note_kind, note_data_json, created_by, modified_at)
-                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                INSERT INTO operator_notes (envelope_id, machine_id, note_kind, note_data_json, created_by, modified_at, rcs_id)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP, ?)
                 ''',
-                (envelope_id, machine_id, note_kind, payload, author)
+                (envelope_id, machine_id, note_kind, payload, author, rcs_id)
             )
             note_id = cursor.lastrowid
             conn.commit()
             conn.close()
-            return {"success": True, "note_id": note_id}
+            return {"success": True, "note_id": note_id, "rcs_id": rcs_id}
         except Exception as e:
             conn.close()
             return {"success": False, "error": str(e), "status": 500}
@@ -1673,7 +1696,7 @@ class Database:
         params.append(limit + 1)
         cursor.execute(
             f'''
-            SELECT id, envelope_id, machine_id, note_kind, note_data_json, created_by, created_at, modified_at
+            SELECT id, envelope_id, machine_id, note_kind, note_data_json, created_by, created_at, modified_at, rcs_id
             FROM operator_notes
             {where_sql}
             ORDER BY created_at DESC, id DESC
@@ -1703,6 +1726,7 @@ class Database:
                     "created_by": row["created_by"],
                     "created_at": row["created_at"],
                     "modified_at": row["modified_at"],
+                    "rcs_id": row["rcs_id"],
                 }
             )
 

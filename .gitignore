@@ -24,3 +24,4 @@ venv/
 # Runtime uploaded images/backups
 data/note_images/
 data/backups/
+koperty.db

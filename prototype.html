@@ -124,7 +124,7 @@
             position: absolute;
             top: 65px;
             left: 0;
-            right: 0;
+            width: 90%;
             background: #333;
             border: 1px solid #555;
             border-radius: 0 0 8px 8px;
@@ -132,6 +132,7 @@
             overflow-y: auto;
             z-index: 100;
             box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5);
+            box-sizing: border-box;
         }
 
         /* Style dla podpowiedzi w magazynie */
@@ -868,11 +869,10 @@
                 📜 ENVELOPE HISTORY
             </h2>
             <div style="background: #1e1e1e; padding: 20px; border-radius: 12px; border: 1px solid #333;">
-                <div style="margin-bottom: 15px;">
+                <div style="margin-bottom: 15px; display: flex; justify-content: center;">
                     <input type="text" id="main-screen-history-search" placeholder="Wpisz ID koperty..."
-                        list="main-screen-history-suggestions"
-                        oninput="debouncedSearchMainScreenHistory()"
-                        style="width: 100%; background: #333; border: 2px solid #444; color: #fff; font-size: 1rem; padding: 12px; border-radius: 8px;">
+                        list="main-screen-history-suggestions" oninput="debouncedSearchMainScreenHistory()"
+                        style="width: 90%; background: #333; border: 2px solid #444; color: #fff; font-size: 1rem; padding: 12px; border-radius: 8px;">
                     <datalist id="main-screen-history-suggestions"></datalist>
                 </div>
                 <div id="main-screen-history-results" style="min-height: 50px; max-height: 400px; overflow-y: auto;">
@@ -961,7 +961,7 @@
         <div class="split-container">
             <!-- LEWA: WYSZUKIWARKA KOPERT -->
             <div class="split-pane warehouse-search-pane" style="flex: 0.4; background: #1a1a1a;">
-                <div class="pane-header" style="color: var(--accent-blue); margin-left: 50px;">
+                <div class="pane-header" style="color: var(--accent-blue); margin-left: 100px;">
                     <span data-i18n="search_envelope">WYSZUKAJ KOPERTĘ</span>
                 </div>
 
@@ -970,7 +970,7 @@
                         data-i18n="search_hint">Wpisz dowolne
                         liczby z numeru koperty:</label>
                     <input type="text" id="search-envelope-input"
-                        style="width: 100%; background: #333; border: 2px solid #444; color: #fff; font-size: 1.2rem; padding: 12px; border-radius: 8px;"
+                        style="width: 95%; background: #333; border: 2px solid #444; color: #fff; font-size: 1.2rem; padding: 12px; border-radius: 8px;"
                         placeholder="np. 765 lub 432345" data-i18n="search_placeholder" oninput="searchEnvelopes()"
                         onfocus="searchEnvelopes()">
                 </div>
@@ -1052,24 +1052,29 @@
                             <span id="api-url-debug" style="font-size: 0.7rem; color: #444; margin-left: 5px;"></span>
                         </div>
 
+                        <button id="btn-toggle-warehouse-view" onclick="toggleWarehouseView()" class="btn btn-orange"
+                            style="width: 140px; height: 45px; font-size: 0.75rem; padding: 0; margin: 0; line-height: 1.2; flex-direction: column; gap: 2px; text-align: center;"
+                            data-i18n="btn_toggle_warehouse">RECEIVE</button>
                         <button onclick="window.open('generator-qr.html', '_blank')" class="btn"
-                            style="background: #2196F3; color: white; padding: 5px 15px; font-size: 0.8rem; margin-right: 5px;"
-                            data-i18n="btn_generator">🖨️
-                            GENERATOR QR</button>
+                            style="width: 140px; height: 45px; font-size: 0.75rem; padding: 0; margin: 0; background: #2196F3; color: white; line-height: 1.2; flex-direction: column; gap: 2px; text-align: center;"
+                            data-i18n="btn_generator">🖨️ GENERATOR QR</button>
                         <button id="btn-admin-panel" class="hidden btn btn-orange" onclick="toggleAdminPanel()"
-                            style="padding: 5px 15px; font-size: 0.8rem;" data-i18n="btn_admin">⚙️ PANEL ADMINA</button>
+                            style="width: 140px; height: 45px; font-size: 0.75rem; padding: 0; margin: 0; line-height: 1.2; flex-direction: column; gap: 2px; text-align: center;"
+                            data-i18n="btn_admin">⚙️ PANEL ADMINA</button>
                         <button id="btn-machine-panel" class="hidden btn btn-blue" onclick="toggleMachinePanel()"
-                            style="padding: 5px 15px; font-size: 0.8rem;" data-i18n="btn_machines">⚙️ MASZYNY</button>
+                            style="width: 140px; height: 45px; font-size: 0.75rem; padding: 0; margin: 0; line-height: 1.2; flex-direction: column; gap: 2px; text-align: center;"
+                            data-i18n="btn_machines">⚙️ MASZYNY</button>
                         <button onclick="logoutWarehouse()" class="btn btn-red"
-                            style="padding: 5px 15px; font-size: 0.8rem;" data-i18n="btn_logout">WYLOGUJ</button>
+                            style="width: 140px; height: 45px; font-size: 0.75rem; padding: 0; margin: 0; line-height: 1.2; flex-direction: column; gap: 2px; text-align: center;"
+                            data-i18n="btn_logout">WYLOGUJ</button>
                     </div>
 
                     <!-- STANDARDOWY PANEL OPERACYJNY -->
                     <div id="warehouse-normal-panel" style="display: flex; flex-direction: row; flex: 1;">
 
                         <!-- WEWNĘTRZNA LEWA: WYDANIE -->
-                        <div class="warehouse-column warehouse-column-out"
-                            style="flex: 1; padding: 20px; border-right: 1px solid #333; display: flex; flex-direction: column;">
+                        <div class="warehouse-column warehouse-column-out" id="warehouse-col-out"
+                            style="flex: 1; padding: 20px; border-right: none; display: flex; flex-direction: column;">
                             <div class="pane-header" style="color: var(--accent-green);">
                                 <span>⭡</span> <span data-i18n="header_issue">WYDANIE (OUT)</span>
                             </div>
@@ -1118,7 +1123,8 @@
                                 <div style="display: flex; flex-direction: column;">
                                     <div
                                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                        <h4 style="margin: 0; color: var(--accent-blue); font-size: 0.85rem;" data-i18n="today_searched">🔍 DZIŚ
+                                        <h4 style="margin: 0; color: var(--accent-blue); font-size: 0.85rem;"
+                                            data-i18n="today_searched">🔍 DZIŚ
                                             SZUKANE</h4>
                                         <span id="search-list-count-out"
                                             style="font-size: 0.75rem; color: #666;">0/0</span>
@@ -1127,10 +1133,12 @@
                                     <!-- Przyciski zarządzania listą -->
                                     <div style="display: flex; gap: 5px; margin-bottom: 8px;">
                                         <button onclick="showAddToSearchList('out')" class="btn"
-                                            style="flex: 1; padding: 6px; font-size: 0.75rem; background: #444;" data-i18n="add_btn">+
+                                            style="flex: 1; padding: 6px; font-size: 0.75rem; background: #444;"
+                                            data-i18n="add_btn">+
                                             Dodaj</button>
                                         <button onclick="showImportSearchList('out')" class="btn btn-blue"
-                                            style="flex: 1; padding: 6px; font-size: 0.75rem;" data-i18n="import_btn">📋 Import</button>
+                                            style="flex: 1; padding: 6px; font-size: 0.75rem;" data-i18n="import_btn">📋
+                                            Import</button>
                                         <button onclick="clearSearchList('out')" class="btn"
                                             style="padding: 6px 10px; font-size: 0.75rem; background: var(--accent-red);">🗑️</button>
                                     </div>
@@ -1150,7 +1158,8 @@
                         </div>
 
                         <!-- WEWNĘTRZNA PRAWA: PRZYJĘCIE -->
-                        <div class="warehouse-column warehouse-column-in" style="flex: 1; padding: 20px; display: flex; flex-direction: column; position: relative;">
+                        <div class="warehouse-column warehouse-column-in" id="warehouse-col-in"
+                            style="flex: 1; padding: 20px; display: none; flex-direction: column; position: relative;">
 
                             <div class="pane-header" style="color: var(--accent-blue);">
                                 <span>⭣</span> <span data-i18n="header_receive">PRZYJĘCIE (RET)</span>
@@ -1240,18 +1249,19 @@
                                     <div class="list-container" id="list-in"
                                         style="flex: 1; overflow-y: auto; background: #1a1a1a; border-radius: 6px; padding: 8px;">
                                         <!-- Elementy dodawane przez JS -->
-                                        <div
-                                            style="color: #666; font-style: italic; text-align: center; padding: 20px;" data-i18n="no_scanned">
+                                        <div style="color: #666; font-style: italic; text-align: center; padding: 20px;"
+                                            data-i18n="no_scanned">
                                             Brak
                                             zeskanowanych kopert</div>
                                     </div>
                                 </div>
 
-                                    <!-- RIGHT: Lista Wyszukiwania -->
+                                <!-- RIGHT: Lista Wyszukiwania -->
                                 <div style="display: flex; flex-direction: column;">
                                     <div
                                         style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
-                                        <h4 style="margin: 0; color: var(--accent-orange); font-size: 0.85rem;" data-i18n="return_cart_title">
+                                        <h4 style="margin: 0; color: var(--accent-orange); font-size: 0.85rem;"
+                                            data-i18n="return_cart_title">
                                             📦 DO ZWROTU
                                         </h4>
                                         <span id="return-cart-count-in"
@@ -1262,8 +1272,8 @@
 
                                     <div id="return-cart-list-in"
                                         style="flex: 1; overflow-y: auto; background: #1a1a1a; border-radius: 6px; padding: 8px;">
-                                        <div
-                                            style="color: #666; font-style: italic; text-align: center; padding: 20px;" data-i18n="no_envelopes">
+                                        <div style="color: #666; font-style: italic; text-align: center; padding: 20px;"
+                                            data-i18n="no_envelopes">
                                             Brak kopert</div>
                                     </div>
                                 </div>
@@ -1520,15 +1530,16 @@
     <!-- 3. EKRAN OPERATORA -->
     <div id="screen-operator" class="hidden col">
         <div class="op-header">
-            <div class="flex center" style="gap: 15px;">
+            <div class="flex center" style="gap: 15px; margin-left: 120px;">
                 <div style="font-weight: 800; font-size: 1.2rem;">JAN KOWALSKI</div>
                 <div class="machine-badge" id="operator-shift-badge">ZMIANA 1</div>
                 <button class="btn" style="padding: 5px 15px; font-size: 0.8rem; background: #664422;"
                     onclick="logoutToHome()">⌂</button>
-                <button class="btn" style="padding: 5px 15px; font-size: 0.8rem; background: #444;"
-                    onclick="logout()" data-i18n="btn_logout">WYLOGUJ</button>
+                <button class="btn" style="padding: 5px 15px; font-size: 0.8rem; background: #444;" onclick="logout()"
+                    data-i18n="btn_logout">WYLOGUJ</button>
             </div>
-            <h1 style="margin: 0; color: #555;"><span data-i18n="machineLabel">MASZYNA</span> <span id="lbl-machine-name" style="color: #fff">S1</span></h1>
+            <h1 style="margin: 0; color: #555;"><span data-i18n="machineLabel">MASZYNA</span> <span
+                    id="lbl-machine-name" style="color: #fff">S1</span></h1>
         </div>
 
         <!-- EKRAN PALETYZACJI (GRID 2x2) - widoczny tylko dla PALLETIZING -->
@@ -1538,11 +1549,12 @@
             <!-- SLOT 1 -->
             <div class="pallet-slot" id="slot-1"
                 style="background: #222; border: 1px solid #444; border-radius: 10px; padding: 15px; min-height: 350px; display: flex; flex-direction: column;">
-                <h3 style="margin: 0 0 10px 0; color: #888; font-size: 1rem;" data-i18n="slot_label" data-i18n-args='["1"]'>📦 SLOT 1</h3>
+                <h3 style="margin: 0 0 10px 0; color: #888; font-size: 1rem;" data-i18n="slot_label"
+                    data-i18n-args='["1"]'>📦 SLOT 1</h3>
                 <div class="slot-content flex col" style="flex: 1; position: relative;">
                     <!-- Input koperty -->
                     <input type="text" id="slot-input-1" placeholder="Nr koperty..." oninput="showSlotSuggestions(1)"
-                        style="width: 100%; background: #333; border: 1px solid #555; color: #fff; padding: 10px; font-size: 1rem; border-radius: 4px; margin-bottom: 8px;">
+                        style="width: 90%; background: #333; border: 1px solid #555; color: #fff; padding: 10px; font-size: 1rem; border-radius: 4px; margin-bottom: 8px;">
                     <div id="slot-hints-1" class="slot-hints-container" style="display: none;"></div>
                     <div style="display: flex; gap: 8px; margin-bottom: 10px;">
                         <button class="btn btn-blue" style="flex: 1; font-size: 0.9rem; padding: 8px;"
@@ -1552,8 +1564,9 @@
                     </div>
                     <!-- Historia slotu -->
                     <div id="slot-history-1"
-                        style="flex: 1; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px; overflow-y: auto; min-height: 80px; margin-bottom: 8px;">
-                        <div style="color: #555; font-size: 0.75rem; text-align: center;" data-i18n="no_entries">Brak wpisów</div>
+                        style="width: 90%; flex: 1; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px; overflow-y: auto; min-height: 80px; margin-bottom: 8px; box-sizing: border-box;">
+                        <div style="color: #555; font-size: 0.75rem; text-align: center;" data-i18n="no_entries">Brak
+                            wpisów</div>
                     </div>
                     <!-- Notatka + Zapisz -->
                     <div style="display: flex; gap: 8px;">
@@ -1564,18 +1577,20 @@
                         <button class="btn btn-green" style="padding: 8px 12px; font-size: 0.85rem;"
                             onclick="saveSlotNote(1)">💾</button>
                     </div>
-                    <input type="file" id="note-image-input-slot-1" accept="image/*" capture="environment" style="display:none"
-                        onchange="handleNoteImageSelected('slot-1', this)">
+                    <input type="file" id="note-image-input-slot-1" accept="image/*" capture="environment"
+                        style="display:none" onchange="handleNoteImageSelected('slot-1', this)">
                     <div id="note-images-slot-1" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
                 </div>
             </div>
             <!-- SLOT 2 -->
             <div class="pallet-slot" id="slot-2"
                 style="background: #222; border: 1px solid #444; border-radius: 10px; padding: 15px; min-height: 350px; display: flex; flex-direction: column;">
-                <h3 style="margin: 0 0 10px 0; color: #888; font-size: 1rem;" data-i18n="slot_label" data-i18n-args='["2"]'>📦 SLOT 2</h3>
+                <h3 style="margin: 0 0 10px 0; color: #888; font-size: 1rem;" data-i18n="slot_label"
+                    data-i18n-args='["2"]'>📦 SLOT 2</h3>
                 <div class="slot-content flex col" style="flex: 1; position: relative;">
-                    <input type="text" id="slot-input-2" data-i18n="slot_envelope_placeholder" oninput="showSlotSuggestions(2)"
-                        style="width: 100%; background: #333; border: 1px solid #555; color: #fff; padding: 10px; font-size: 1rem; border-radius: 4px; margin-bottom: 8px;">
+                    <input type="text" id="slot-input-2" data-i18n="slot_envelope_placeholder"
+                        oninput="showSlotSuggestions(2)"
+                        style="width: 90%; background: #333; border: 1px solid #555; color: #fff; padding: 10px; font-size: 1rem; border-radius: 4px; margin-bottom: 8px;">
                     <div id="slot-hints-2" class="slot-hints-container" style="display: none;"></div>
                     <div style="display: flex; gap: 8px; margin-bottom: 10px;">
                         <button class="btn btn-blue" style="flex: 1; font-size: 0.9rem; padding: 8px;"
@@ -1584,8 +1599,9 @@
                             onclick="activateSlot(2)" title="Symuluj Skan">📡</button>
                     </div>
                     <div id="slot-history-2"
-                        style="flex: 1; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px; overflow-y: auto; min-height: 80px; margin-bottom: 8px;">
-                        <div style="color: #555; font-size: 0.75rem; text-align: center;" data-i18n="no_entries">Brak wpisów</div>
+                        style="width: 90%; flex: 1; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px; overflow-y: auto; min-height: 80px; margin-bottom: 8px; box-sizing: border-box;">
+                        <div style="color: #555; font-size: 0.75rem; text-align: center;" data-i18n="no_entries">Brak
+                            wpisów</div>
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="slot-note-2" data-i18n="slot_note_placeholder"
@@ -1595,18 +1611,20 @@
                         <button class="btn btn-green" style="padding: 8px 12px; font-size: 0.85rem;"
                             onclick="saveSlotNote(2)">💾</button>
                     </div>
-                    <input type="file" id="note-image-input-slot-2" accept="image/*" capture="environment" style="display:none"
-                        onchange="handleNoteImageSelected('slot-2', this)">
+                    <input type="file" id="note-image-input-slot-2" accept="image/*" capture="environment"
+                        style="display:none" onchange="handleNoteImageSelected('slot-2', this)">
                     <div id="note-images-slot-2" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
                 </div>
             </div>
             <!-- SLOT 3 -->
             <div class="pallet-slot" id="slot-3"
                 style="background: #222; border: 1px solid #444; border-radius: 10px; padding: 15px; min-height: 350px; display: flex; flex-direction: column;">
-                <h3 style="margin: 0 0 10px 0; color: #888; font-size: 1rem;" data-i18n="slot_label" data-i18n-args='["3"]'>📦 SLOT 3</h3>
+                <h3 style="margin: 0 0 10px 0; color: #888; font-size: 1rem;" data-i18n="slot_label"
+                    data-i18n-args='["3"]'>📦 SLOT 3</h3>
                 <div class="slot-content flex col" style="flex: 1; position: relative;">
-                    <input type="text" id="slot-input-3" data-i18n="slot_envelope_placeholder" oninput="showSlotSuggestions(3)"
-                        style="width: 100%; background: #333; border: 1px solid #555; color: #fff; padding: 10px; font-size: 1rem; border-radius: 4px; margin-bottom: 8px;">
+                    <input type="text" id="slot-input-3" data-i18n="slot_envelope_placeholder"
+                        oninput="showSlotSuggestions(3)"
+                        style="width: 90%; background: #333; border: 1px solid #555; color: #fff; padding: 10px; font-size: 1rem; border-radius: 4px; margin-bottom: 8px;">
                     <div id="slot-hints-3" class="slot-hints-container" style="display: none;"></div>
                     <div style="display: flex; gap: 8px; margin-bottom: 10px;">
                         <button class="btn btn-blue" style="flex: 1; font-size: 0.9rem; padding: 8px;"
@@ -1615,8 +1633,9 @@
                             onclick="activateSlot(3)" title="Symuluj Skan">📡</button>
                     </div>
                     <div id="slot-history-3"
-                        style="flex: 1; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px; overflow-y: auto; min-height: 80px; margin-bottom: 8px;">
-                        <div style="color: #555; font-size: 0.75rem; text-align: center;" data-i18n="no_entries">Brak wpisów</div>
+                        style="width: 90%; flex: 1; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px; overflow-y: auto; min-height: 80px; margin-bottom: 8px; box-sizing: border-box;">
+                        <div style="color: #555; font-size: 0.75rem; text-align: center;" data-i18n="no_entries">Brak
+                            wpisów</div>
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="slot-note-3" data-i18n="slot_note_placeholder"
@@ -1626,18 +1645,20 @@
                         <button class="btn btn-green" style="padding: 8px 12px; font-size: 0.85rem;"
                             onclick="saveSlotNote(3)">💾</button>
                     </div>
-                    <input type="file" id="note-image-input-slot-3" accept="image/*" capture="environment" style="display:none"
-                        onchange="handleNoteImageSelected('slot-3', this)">
+                    <input type="file" id="note-image-input-slot-3" accept="image/*" capture="environment"
+                        style="display:none" onchange="handleNoteImageSelected('slot-3', this)">
                     <div id="note-images-slot-3" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
                 </div>
             </div>
             <!-- SLOT 4 -->
             <div class="pallet-slot" id="slot-4"
                 style="background: #222; border: 1px solid #444; border-radius: 10px; padding: 15px; min-height: 350px; display: flex; flex-direction: column;">
-                <h3 style="margin: 0 0 10px 0; color: #888; font-size: 1rem;" data-i18n="slot_label" data-i18n-args='["4"]'>📦 SLOT 4</h3>
+                <h3 style="margin: 0 0 10px 0; color: #888; font-size: 1rem;" data-i18n="slot_label"
+                    data-i18n-args='["4"]'>📦 SLOT 4</h3>
                 <div class="slot-content flex col" style="flex: 1; position: relative;">
-                    <input type="text" id="slot-input-4" data-i18n="slot_envelope_placeholder" oninput="showSlotSuggestions(4)"
-                        style="width: 100%; background: #333; border: 1px solid #555; color: #fff; padding: 10px; font-size: 1rem; border-radius: 4px; margin-bottom: 8px;">
+                    <input type="text" id="slot-input-4" data-i18n="slot_envelope_placeholder"
+                        oninput="showSlotSuggestions(4)"
+                        style="width: 90%; background: #333; border: 1px solid #555; color: #fff; padding: 10px; font-size: 1rem; border-radius: 4px; margin-bottom: 8px;">
                     <div id="slot-hints-4" class="slot-hints-container" style="display: none;"></div>
                     <div style="display: flex; gap: 8px; margin-bottom: 10px;">
                         <button class="btn btn-blue" style="flex: 1; font-size: 0.9rem; padding: 8px;"
@@ -1646,8 +1667,9 @@
                             onclick="activateSlot(4)" title="Symuluj Skan">📡</button>
                     </div>
                     <div id="slot-history-4"
-                        style="flex: 1; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px; overflow-y: auto; min-height: 80px; margin-bottom: 8px;">
-                        <div style="color: #555; font-size: 0.75rem; text-align: center;" data-i18n="no_entries">Brak wpisów</div>
+                        style="width: 90%; flex: 1; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px; overflow-y: auto; min-height: 80px; margin-bottom: 8px; box-sizing: border-box;">
+                        <div style="color: #555; font-size: 0.75rem; text-align: center;" data-i18n="no_entries">Brak
+                            wpisów</div>
                     </div>
                     <div style="display: flex; gap: 8px;">
                         <input type="text" id="slot-note-4" data-i18n="slot_note_placeholder"
@@ -1657,8 +1679,8 @@
                         <button class="btn btn-green" style="padding: 8px 12px; font-size: 0.85rem;"
                             onclick="saveSlotNote(4)">💾</button>
                     </div>
-                    <input type="file" id="note-image-input-slot-4" accept="image/*" capture="environment" style="display:none"
-                        onchange="handleNoteImageSelected('slot-4', this)">
+                    <input type="file" id="note-image-input-slot-4" accept="image/*" capture="environment"
+                        style="display:none" onchange="handleNoteImageSelected('slot-4', this)">
                     <div id="note-images-slot-4" style="display:flex; gap:8px; flex-wrap:wrap; margin-top:8px;"></div>
                 </div>
             </div>
@@ -1670,8 +1692,8 @@
             <!-- PANEL WYBORU KOPERTY -->
             <div id="machine-search-panel"
                 style="background: linear-gradient(135deg, #1a1a1a 0%, #252525 100%); border-radius: 15px; padding: 30px; margin-bottom: 25px; border: 2px solid #333; box-shadow: 0 4px 20px rgba(0,0,0,0.5);">
-                <h3
-                    style="margin: 0 0 20px 0; color: var(--accent-blue); font-size: 1.8rem; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px rgba(41, 121, 255, 0.5);" data-i18n="envelopeSelect">
+                <h3 style="margin: 0 0 20px 0; color: var(--accent-blue); font-size: 1.8rem; text-transform: uppercase; letter-spacing: 2px; text-shadow: 0 0 10px rgba(41, 121, 255, 0.5);"
+                    data-i18n="envelopeSelect">
                     📋 WYBIERZ KOPERTĘ DO PRACY</h3>
 
                 <div class="operator-search-controls">
@@ -1690,19 +1712,19 @@
                         <div id="operator-hints" style="
                         position: absolute; top: 100%; left: 0; right: 0; 
                         background: #1a1a1a; border: 2px solid #555; border-radius: 0 0 10px 10px;
-                        max-height: 200px; overflow-y: auto; z-index: 100; display: none;
+                        max-height: 400px; overflow-y: auto; z-index: 100; display: none;
                         box-shadow: 0 6px 20px rgba(0,0,0,0.7);">
                         </div>
                     </div>
 
                     <!-- Przyciski -->
                     <div class="operator-search-actions">
-                        <button class="btn btn-blue operator-search-btn"
-                            onclick="loadEnvelope()" data-i18n="btn_search">
+                        <button class="btn btn-blue operator-search-btn" onclick="loadEnvelope()"
+                            data-i18n="btn_search">
                             🔍 SZUKAJ
                         </button>
-                        <button class="btn btn-green operator-search-btn"
-                            onclick="simulateScan('load')" data-i18n="scan_btn">
+                        <button class="btn btn-green operator-search-btn" onclick="simulateScan('load')"
+                            data-i18n="scan_btn">
                             📡 SKANUJ
                         </button>
                     </div>
@@ -1729,8 +1751,8 @@
                 <!-- GÓRA: HISTORIA NOTATEK (przewijalna) -->
                 <div id="historia-container"
                     style="flex: 1; min-height: 200px; overflow-y: auto; background: rgba(0,0,0,0.3); border-radius: 12px; padding: 18px; margin-bottom: 18px; border: 2px solid #333;">
-                    <h4
-                        style="margin: 0 0 12px 0; color: var(--text-secondary); font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px;" data-i18n="history_log_title">
+                    <h4 style="margin: 0 0 12px 0; color: var(--text-secondary); font-size: 1.1rem; text-transform: uppercase; letter-spacing: 1px;"
+                        data-i18n="history_log_title">
                         📜 HISTORIA WPISÓW
                     </h4>
                     <!-- Karty historii będą generowane przez JS -->
@@ -1739,42 +1761,46 @@
                 <!-- DÓŁ: NOWY WPIS (Formularz Cornell) - STANDARD -->
                 <div id="standard-notes-form"
                     style="background: linear-gradient(135deg, rgba(255,145,0,0.15) 0%, rgba(255,145,0,0.05) 100%); padding: 20px; border-radius: 12px; border: 2px solid var(--accent-orange); box-shadow: 0 4px 15px rgba(255,145,0,0.2);">
-                    <h4
-                        style="margin: 0 0 18px 0; color: var(--accent-orange); font-size: 1.3rem; text-transform: uppercase; letter-spacing: 1.5px;" data-i18n="new_entry_title">
+                    <h4 style="margin: 0 0 18px 0; color: var(--accent-orange); font-size: 1.3rem; text-transform: uppercase; letter-spacing: 1.5px;"
+                        data-i18n="new_entry_title">
                         ➕ NOWY WPIS</h4>
 
                     <div style="display: flex; gap: 18px; margin-bottom: 12px;">
                         <div style="flex: 0.8;">
-                            <label style="color: #aaa; font-size: 0.9rem; font-weight: 600;" data-i18n="params_label">⚙️ PARAMETRY</label>
+                            <label style="color: #aaa; font-size: 0.9rem; font-weight: 600;" data-i18n="params_label">⚙️
+                                PARAMETRY</label>
                             <textarea id="note-params"
-                                style="width: 100%; height: 90px; background: rgba(0,0,0,0.5); border: 2px solid #555; border-radius: 10px; color: var(--accent-orange); padding: 12px; font-size: 1rem; resize: none; font-family: monospace; font-weight: 600;"
+                                style="width: 90%; height: 90px; background: rgba(0,0,0,0.5); border: 2px solid #555; border-radius: 10px; color: var(--accent-orange); padding: 12px; font-size: 1rem; resize: none; font-family: monospace; font-weight: 600;"
                                 placeholder="Prędkość: 5000&#10;Fider: 30%" data-i18n="param_placeholder"></textarea>
                         </div>
                         <div style="flex: 1;">
-                            <label style="color: #aaa; font-size: 0.9rem; font-weight: 600;" data-i18n="attention_label">⚠️ UWAGI</label>
+                            <label style="color: #aaa; font-size: 0.9rem; font-weight: 600;"
+                                data-i18n="attention_label">⚠️ UWAGI</label>
                             <textarea id="note-attention"
-                                style="width: 100%; height: 90px; background: rgba(0,0,0,0.4); border: 2px solid #555; border-radius: 10px; color: #fff; padding: 12px; font-size: 1rem; resize: none;"
+                                style="width: 90%; height: 90px; background: rgba(0,0,0,0.4); border: 2px solid #555; border-radius: 10px; color: #fff; padding: 12px; font-size: 1rem; resize: none;"
                                 placeholder="Na co zwracać uwagę..." data-i18n="notes_placeholder"></textarea>
                         </div>
                     </div>
 
-                    <label style="color: #aaa; font-size: 0.9rem; font-weight: 600;" data-i18n="summary_label">📋 PODSUMOWANIE</label>
+                    <label style="color: #aaa; font-size: 0.9rem; font-weight: 600;" data-i18n="summary_label">📋
+                        PODSUMOWANIE</label>
                     <textarea id="note-summary"
-                        style="width: 100%; height: 50px; background: rgba(0,0,0,0.4); border: 2px solid #555; border-radius: 10px; color: #fff; padding: 12px; font-size: 1rem; resize: none; margin-bottom: 15px;"
+                        style="width: 90%; height: 50px; background: rgba(0,0,0,0.4); border: 2px solid #555; border-radius: 10px; color: #fff; padding: 12px; font-size: 1rem; resize: none; margin-bottom: 15px;"
                         placeholder="Krótkie podsumowanie zmiany..." data-i18n="summary_placeholder"></textarea>
 
                     <div style="display: flex; gap: 10px; align-items: center; margin-bottom: 12px;">
                         <button class="btn btn-blue" style="padding: 8px 14px; font-size: 0.9rem;"
                             onclick="openNoteImagePicker('standard')">📷 ZRÓB ZDJĘCIE</button>
                         <span style="color: #888; font-size: 0.8rem;">Maks. 3 zdjęcia / notatkę</span>
-                        <input type="file" id="note-image-input-standard" accept="image/*" capture="environment" style="display:none"
-                            onchange="handleNoteImageSelected('standard', this)">
+                        <input type="file" id="note-image-input-standard" accept="image/*" capture="environment"
+                            style="display:none" onchange="handleNoteImageSelected('standard', this)">
                     </div>
-                    <div id="note-images-standard"
-                        style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 14px;"></div>
+                    <div id="note-images-standard" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 14px;">
+                    </div>
 
                     <div style="display: flex; gap: 18px;">
-                        <button class="btn btn-green" style="flex: 1; font-size: 1.2rem;" onclick="saveNote()" data-i18n="save_board_btn">💾 ZAPISZ
+                        <button class="btn btn-green" style="flex: 1; font-size: 1.2rem;" onclick="saveNote()"
+                            data-i18n="save_board_btn">💾 ZAPISZ
                             DO
                             TABLICY</button>
                         <button class="btn btn-orange" style="flex: 1; font-size: 1.2rem;"
@@ -1785,24 +1811,28 @@
                 <!-- DÓŁ: NOWY WPIS (PALETYZACJA) - SPECJALNY -->
                 <div id="palletizing-notes-form" class="hidden"
                     style="background: rgba(0, 100, 255, 0.1); padding: 15px; border-radius: 10px; border-top: 3px solid var(--accent-blue);">
-                    <h4 style="margin: 0 0 15px 0; color: var(--accent-blue); font-size: 0.9rem;" data-i18n="new_entry_pallet">➕ NOWY WPIS
+                    <h4 style="margin: 0 0 15px 0; color: var(--accent-blue); font-size: 0.9rem;"
+                        data-i18n="new_entry_pallet">➕ NOWY WPIS
                         (PALETYZACJA)</h4>
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 10px;">
                         <div>
-                            <label style="color: #888; font-size: 0.75rem;" data-i18n="pressure_label">⚖️ NACISK (BAR)</label>
+                            <label style="color: #888; font-size: 0.75rem;" data-i18n="pressure_label">⚖️ NACISK
+                                (BAR)</label>
                             <input type="text" id="pal-pressure"
                                 style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid #444; border-radius: 8px; color: #fff; padding: 8px;"
                                 placeholder="np. 2.5">
                         </div>
                         <div>
-                            <label style="color: #888; font-size: 0.75rem;" data-i18n="layers_label">📚 ILOŚĆ WARSTW</label>
+                            <label style="color: #888; font-size: 0.75rem;" data-i18n="layers_label">📚 ILOŚĆ
+                                WARSTW</label>
                             <input type="number" id="pal-layers"
                                 style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid #444; border-radius: 8px; color: #fff; padding: 8px;"
                                 placeholder="np. 5">
                         </div>
                         <div>
-                            <label style="color: #888; font-size: 0.75rem;" data-i18n="pallet_type_label">🧱 RODZAJ PALETY</label>
+                            <label style="color: #888; font-size: 0.75rem;" data-i18n="pallet_type_label">🧱 RODZAJ
+                                PALETY</label>
                             <select id="pal-type"
                                 style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid #444; border-radius: 8px; color: #fff; padding: 8px;">
                                 <option value="EURO" data-i18n="pallet_euro">EURO</option>
@@ -1812,7 +1842,8 @@
                             </select>
                         </div>
                         <div>
-                            <label style="color: #888; font-size: 0.75rem;" data-i18n="packs_label">📦 ILE PAKSÓW</label>
+                            <label style="color: #888; font-size: 0.75rem;" data-i18n="packs_label">📦 ILE
+                                PAKSÓW</label>
                             <input type="number" id="pal-packs"
                                 style="width: 100%; background: rgba(0,0,0,0.4); border: 1px solid #444; border-radius: 8px; color: #fff; padding: 8px;"
                                 placeholder="np. 50">
@@ -1823,14 +1854,15 @@
                         <button class="btn btn-blue" style="padding: 8px 14px; font-size: 0.9rem;"
                             onclick="openNoteImagePicker('pallet')">📷 ZRÓB ZDJĘCIE</button>
                         <span style="color: #888; font-size: 0.8rem;">Maks. 3 zdjęcia / notatkę</span>
-                        <input type="file" id="note-image-input-pallet" accept="image/*" capture="environment" style="display:none"
-                            onchange="handleNoteImageSelected('pallet', this)">
+                        <input type="file" id="note-image-input-pallet" accept="image/*" capture="environment"
+                            style="display:none" onchange="handleNoteImageSelected('pallet', this)">
                     </div>
-                    <div id="note-images-pallet"
-                        style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 14px;"></div>
+                    <div id="note-images-pallet" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom: 14px;">
+                    </div>
 
                     <div style="display: flex; gap: 15px;">
-                        <button class="btn btn-green" style="flex: 1;" onclick="savePalletNote()" data-i18n="save_settings">💾 ZAPISZ
+                        <button class="btn btn-green" style="flex: 1;" onclick="savePalletNote()"
+                            data-i18n="save_settings">💾 ZAPISZ
                             USTAWIENIA</button>
                     </div>
                 </div>
@@ -1870,14 +1902,14 @@
         function toggleOperatorLanguage() {
             const newLang = currentLang === 'pl' ? 'en' : 'pl';
             setLanguage(newLang);
-            
+
             const btn = document.getElementById('lang-toggle-btn');
-            if(btn) {
-                 btn.innerText = '🌐 ' + (newLang === 'pl' ? 'EN' : 'PL');
+            if (btn) {
+                btn.innerText = '🌐 ' + (newLang === 'pl' ? 'EN' : 'PL');
             }
-        }    
-            // Note: Most other elements (buttons, placeholders) are now handled globally by setLanguage 
-            // because we added data-i18n attributes to them.
+        }
+        // Note: Most other elements (buttons, placeholders) are now handled globally by setLanguage 
+        // because we added data-i18n attributes to them.
 
         // Helper function to get translated text (for use in alerts/confirms)
 
@@ -2403,7 +2435,7 @@
         }
 
         async function getOperatorNotesAPI(envelopeId, machineId, limit = 20, cursor = null) {
-            let url = `${API_BASE}/operator-notes/${encodeURIComponent(envelopeId)}/${encodeURIComponent(machineId)}?limit=${limit}`;
+            let url = `${API_BASE}/operator-notes/${encodeURIComponent(envelopeId)}?machine_id=${encodeURIComponent(machineId)}&limit=${limit}`;
             if (cursor) url += `&cursor=${encodeURIComponent(cursor)}`;
             const response = await fetch(url);
             const result = await response.json();
@@ -2452,8 +2484,8 @@
                 return;
             }
 
-            const operator = document.querySelector('#screen-operator .op-header div div:first-child').innerText;
             try {
+                const operator = document.querySelector('#screen-operator .op-header div div:first-child')?.innerText?.trim() || selectedMachineName || 'Nieznany';
                 const created = await saveOperatorNoteAPI({
                     envelope_id: currentEnvelopeRCS,
                     machine_id: selectedMachineName,
@@ -2542,7 +2574,8 @@
         function hideNotesSection() {
             currentEnvelopeRCS = null;
             const ks = document.getElementById('knowledge-section');
-            if (ks) ks.style.display = 'flex';
+            if (ks) ks.style.display = 'none';
+
             const kontener = document.getElementById('historia-container');
             if (kontener) {
                 kontener.innerHTML = `
@@ -2819,20 +2852,20 @@
 
             // Pobierz z API (świeże dane z bazy)
             let matches = await searchEnvelopesAPI(query);
-            
+
             console.log(`🔍 Search query: "${query}", Raw matches:`, matches.length);
 
             matches = matches.filter(e => {
                 const loc = e.location ? String(e.location).trim().toUpperCase() : '';
-                const stat = e.status ? String(e.status).trim().toUpperCase() : ''; 
-                
+                const stat = e.status ? String(e.status).trim().toUpperCase() : '';
+
                 const allowedValues = ['CART-OUT-01', 'CART-RET-05', 'SHOP_FLOOR', 'SHOP FLOOR'];
-                
+
                 // Check if Location OR Status matches allowed values
                 const isLocValid = loc && allowedValues.some(allowed => loc.includes(allowed));
                 const isStatValid = stat && allowedValues.some(allowed => stat.includes(allowed));
-                
-                const isProduction = stat === 'W_PRODUKCJI'; 
+
+                const isProduction = stat === 'W_PRODUKCJI';
 
                 return isLocValid || isStatValid || isProduction;
             });
@@ -3141,16 +3174,16 @@
             const allowedValues = ['CART-OUT-01', 'CART-RET-05', 'SHOP_FLOOR', 'SHOP FLOOR'];
             const eLoc = envelope.location ? String(envelope.location).trim().toUpperCase() : '';
             const eStat = envelope.status ? String(envelope.status).trim().toUpperCase() : '';
-            
+
             const isLocValid = eLoc && allowedValues.some(allowed => eLoc.includes(allowed));
             const isStatValid = eStat && allowedValues.some(allowed => eStat.includes(allowed));
             const isProduction = eStat === 'W_PRODUKCJI';
 
             if (!isLocValid && !isStatValid && !isProduction) {
-                 console.warn(`⛔ Blocked loading ${envelope.id}: Loc='${eLoc}', Stat='${eStat}'`);
-                 // Show debug info in alert
-                 alert(`${t('envelope_location_error')} (Loc: ${eLoc}, Stat: ${eStat})`);
-                 return;
+                console.warn(`⛔ Blocked loading ${envelope.id}: Loc='${eLoc}', Stat='${eStat}'`);
+                // Show debug info in alert
+                alert(`${t('envelope_location_error')} (Loc: ${eLoc}, Stat: ${eStat})`);
+                return;
             }
 
             // --- AKTUALIZUJ BAZĘ SQL PRZEZ API ---
@@ -3258,7 +3291,7 @@
                         <button class="btn" style="width: 60px; background: #444; font-size: 1.2rem;" onclick="activateSlot(${slotId})" title="Symuluj Skan">📡</button>
                     </div>
                     <!-- Historia slotu -->
-                    <div id="slot-history-${slotId}" style="flex: 1; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px; overflow-y: auto; min-height: 60px; margin-bottom: 8px; margin-top: 10px;">
+                    <div id="slot-history-${slotId}" style="width: 90%; flex: 1; background: rgba(0,0,0,0.3); border-radius: 6px; padding: 8px; overflow-y: auto; min-height: 60px; margin-bottom: 8px; margin-top: 10px; box-sizing: border-box;">
                         <div style="color: #555; font-size: 0.75rem; text-align: center;">Załaduj kopertę</div>
                     </div>
                     <!-- Notatka + Zapisz -->
@@ -3369,15 +3402,15 @@
             const allowedValues = ['CART-OUT-01', 'CART-RET-05', 'SHOP_FLOOR', 'SHOP FLOOR'];
             const eLoc = envelope.location ? String(envelope.location).trim().toUpperCase() : '';
             const eStat = envelope.status ? String(envelope.status).trim().toUpperCase() : '';
-            
+
             const isLocValid = eLoc && allowedValues.some(allowed => eLoc.includes(allowed));
             const isStatValid = eStat && allowedValues.some(allowed => eStat.includes(allowed));
             const isProduction = eStat === 'W_PRODUKCJI';
 
             if (!isLocValid && !isStatValid && !isProduction) {
-                 console.warn(`⛔ Blocked loading ${envelope.id}: Loc='${eLoc}', Stat='${eStat}'`);
-                 showEnvelopeMessage(`${t('envelope_location_error')} (Loc: ${eLoc}, Stat: ${eStat})`, 'error');
-                 return;
+                console.warn(`⛔ Blocked loading ${envelope.id}: Loc='${eLoc}', Stat='${eStat}'`);
+                showEnvelopeMessage(`${t('envelope_location_error')} (Loc: ${eLoc}, Stat: ${eStat})`, 'error');
+                return;
             }
 
             // Załaduj kopertę na maszynę przez API
@@ -3542,6 +3575,30 @@
                 err.style.opacity = "1";
                 err.innerText = "Błąd połączenia z serwerem!";
                 setTimeout(() => err.style.opacity = "0", 3000);
+            }
+        }
+
+        let currentWarehouseView = 'out'; // 'out' (Wydania) lub 'in' (Przyjęcia)
+
+        function toggleWarehouseView() {
+            const colOut = document.getElementById('warehouse-col-out');
+            const colIn = document.getElementById('warehouse-col-in');
+            const toggleBtn = document.getElementById('btn-toggle-warehouse-view');
+
+            if (currentWarehouseView === 'out') {
+                colOut.style.display = 'none';
+                colIn.style.display = 'flex';
+                toggleBtn.innerText = 'ISSUE';
+                toggleBtn.classList.remove('btn-orange');
+                toggleBtn.classList.add('btn-green');
+                currentWarehouseView = 'in';
+            } else {
+                colOut.style.display = 'flex';
+                colIn.style.display = 'none';
+                toggleBtn.innerText = 'RECEIVE';
+                toggleBtn.classList.remove('btn-green');
+                toggleBtn.classList.add('btn-orange');
+                currentWarehouseView = 'out';
             }
         }
 
@@ -3900,10 +3957,10 @@
                     </div>
                     <div style="display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px;">
                         ${limited.map((env, index) => {
-                            const location = env.status === 'MAGAZYN'
-                                ? (env.location || 'MAGAZYN')
-                                : (env.machine || env.location || '-');
-                            return `
+                    const location = env.status === 'MAGAZYN'
+                        ? (env.location || 'MAGAZYN')
+                        : (env.machine || env.location || '-');
+                    return `
                                 <button class="btn"
                                     onclick="loadMainScreenHistoryForEnvelope('${encodeURIComponent(env.id)}')"
                                     style="background: rgba(255,255,255,0.04); border: 1px solid #444; padding: 10px; font-size: 0.82rem; text-transform: none; letter-spacing: 0.2px; justify-content: space-between;">
@@ -3911,7 +3968,7 @@
                                     <span style="color: #999;">${env.status} • ${location}</span>
                                 </button>
                             `;
-                        }).join('')}
+                }).join('')}
                     </div>
                     <div id="main-screen-history-details" style="border-top: 1px solid #333; padding-top: 10px; min-height: 70px;">
                         <p style="color: #666; text-align: center; padding: 12px;">⏳ Autoładowanie historii pierwszego wyniku...</p>
@@ -5335,11 +5392,13 @@
     style="position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); display: flex; align-items: center; justify-content: center; z-index: 1000;">
     <div
         style="background: #1a1a1a; padding: 30px; border-radius: 10px; border: 2px solid var(--accent-orange); max-width: 600px; width: 90%;">
-        <h2 id="import-modal-title" style="margin-top: 0; color: var(--accent-orange);" data-i18n="import_products_title">📤 Import Produktów</h2>
+        <h2 id="import-modal-title" style="margin-top: 0; color: var(--accent-orange);"
+            data-i18n="import_products_title">📤 Import Produktów</h2>
 
         <div
             style="background: #252525; padding: 15px; border-radius: 6px; margin-bottom: 20px; border-left: 3px solid var(--accent-blue);">
-            <div style="color: #888; font-size: 0.85rem; margin-bottom: 5px;" data-i18n="file_format_label">Format pliku:</div>
+            <div style="color: #888; font-size: 0.85rem; margin-bottom: 5px;" data-i18n="file_format_label">Format
+                pliku:</div>
             <code style="color: #fff; font-size: 0.9rem;">company_name, product_name, rcs_id</code>
         </div>
 
@@ -5360,10 +5419,12 @@
         </div>
 
         <div style="display: flex; gap: 10px; justify-content: flex-end;">
-            <button onclick="closeImportModal()" class="btn" style="padding: 10px 20px; background: #555;" data-i18n="btn_cancel_modal">
+            <button onclick="closeImportModal()" class="btn" style="padding: 10px 20px; background: #555;"
+                data-i18n="btn_cancel_modal">
                 Anuluj
             </button>
-            <button id="import-btn" onclick="executeImport()" class="btn btn-orange" style="padding: 10px 20px;" data-i18n="btn_import">
+            <button id="import-btn" onclick="executeImport()" class="btn btn-orange" style="padding: 10px 20px;"
+                data-i18n="btn_import">
                 📤 Importuj
             </button>
         </div>
@@ -5374,19 +5435,24 @@
 <div id="add-search-modal" class="modal hidden">
     <div
         style="background: #1a1a1a; padding: 30px; border-radius: 10px; border: 2px solid var(--accent-blue); max-width: 400px; width: 90%;">
-        <h2 style="margin-top: 0; color: var(--accent-blue);" data-i18n="add_to_search_title">🔍 Dodaj do listy szukanych</h2>
+        <h2 style="margin-top: 0; color: var(--accent-blue);" data-i18n="add_to_search_title">🔍 Dodaj do listy
+            szukanych</h2>
 
         <div style="margin-bottom: 20px;">
-            <label style="color: #888; font-size: 0.85rem; margin-bottom: 5px; display: block;" data-i18n="envelope_id_label">ID Koperty:</label>
+            <label style="color: #888; font-size: 0.85rem; margin-bottom: 5px; display: block;"
+                data-i18n="envelope_id_label">ID Koperty:</label>
             <input type="text" id="add-search-envelope-id" placeholder="np. RCS044761/A"
-                style="width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;" data-i18n="envelope_placeholder">
+                style="width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;"
+                data-i18n="envelope_placeholder">
         </div>
 
         <div style="display: flex; gap: 10px; justify-content: flex-end;">
-            <button onclick="closeAddSearchModal()" class="btn" style="padding: 10px 20px; background: #555;" data-i18n="btn_cancel_modal">
+            <button onclick="closeAddSearchModal()" class="btn" style="padding: 10px 20px; background: #555;"
+                data-i18n="btn_cancel_modal">
                 Anuluj
             </button>
-            <button onclick="executeAddToSearchList()" class="btn btn-blue" style="padding: 10px 20px;" data-i18n="btn_add">
+            <button onclick="executeAddToSearchList()" class="btn btn-blue" style="padding: 10px 20px;"
+                data-i18n="btn_add">
                 ✅ Dodaj
             </button>
         </div>
@@ -5397,13 +5463,16 @@
 <div id="import-search-modal" class="modal hidden">
     <div
         style="background: #1a1a1a; padding: 30px; border-radius: 10px; border: 2px solid var(--accent-blue); max-width: 600px; width: 90%;">
-        <h2 id="import-search-modal-title" style="margin-top: 0; color: var(--accent-blue);" data-i18n="import_search_title">📤 Import Listy Szukanych
+        <h2 id="import-search-modal-title" style="margin-top: 0; color: var(--accent-blue);"
+            data-i18n="import_search_title">📤 Import Listy Szukanych
         </h2>
 
         <div
             style="background: #252525; padding: 15px; border-radius: 6px; margin-bottom: 20px; border-left: 3px solid var(--accent-blue);">
-            <div style="color: #888; font-size: 0.85rem; margin-bottom: 5px;" data-i18n="file_format_label">Format pliku:</div>
-            <code style="color: #fff; font-size: 0.9rem;" data-i18n="file_format_search_hint">Jedna koperta na linię (CSV lub Excel z 1 kolumną)</code>
+            <div style="color: #888; font-size: 0.85rem; margin-bottom: 5px;" data-i18n="file_format_label">Format
+                pliku:</div>
+            <code style="color: #fff; font-size: 0.9rem;"
+                data-i18n="file_format_search_hint">Jedna koperta na linię (CSV lub Excel z 1 kolumną)</code>
         </div>
 
         <input type="file" id="import-search-file-input" accept=".csv,.xlsx,.xls"
@@ -5424,7 +5493,8 @@
         </div>
 
         <div style="display: flex; gap: 10px; justify-content: flex-end;">
-            <button onclick="closeImportSearchModal()" class="btn" style="padding: 10px 20px; background: #555;" data-i18n="btn_cancel_modal">
+            <button onclick="closeImportSearchModal()" class="btn" style="padding: 10px 20px; background: #555;"
+                data-i18n="btn_cancel_modal">
                 Anuluj
             </button>
             <button id="import-search-btn" onclick="executeImportSearchList()" class="btn btn-blue"

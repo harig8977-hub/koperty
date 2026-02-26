@@ -422,7 +422,7 @@
     const containerRect = state.stageContainer.getBoundingClientRect();
     const maxW = Math.max(320, containerRect.width - 20);
     const maxH = Math.max(240, containerRect.height - 20);
-    const ratio = Math.min(maxW / img.width, maxH / img.height, 1);
+    const ratio = Math.min(maxW / img.width, maxH / img.height, 1.5);
     const stageWidth = Math.max(320, Math.floor(img.width * ratio));
     const stageHeight = Math.max(240, Math.floor(img.height * ratio));
 

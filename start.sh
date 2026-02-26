@@ -1,4 +1,5 @@
 #!/bin/bash
+source venv/bin/activate
 echo "--- Naprawa i Start Systemu Kopert (v1.4) ---"
 
 # 1. Zatrzymaj stare procesy
@@ -21,10 +22,10 @@ fi
 
 # 3. Sprawdź biblioteki
 echo "Weryfikacja środowiska Python..."
-python3 -c "import flask, flask_cors, sqlite3" 2>/dev/null
+python3 -c "import flask, flask_cors, sqlite3, PIL" 2>/dev/null
 if [ $? -ne 0 ]; then
     echo "Brak wymaganych bibliotek. Próba instalacji..."
-    pip install --user flask flask-cors
+    pip install -r requirements.txt
 else
     echo "Środowisko OK."
 fi
