@@ -24,7 +24,7 @@ const TRANSLATIONS = {
         // Operations
         'btn_generator': '🖨️ GENERATOR QR',
         'btn_admin': '⚙️ PANEL ADMINA',
-        'btn_machines': '⚙️ MASZYNY',
+        'btn_machines': '🔑 PIN Setup',
         'btn_user': '👥 USER',
         'btn_logout': 'WYLOGUJ',
 
@@ -180,7 +180,7 @@ const TRANSLATIONS = {
         'skipped': 'Pominięto',
         'errors_label': 'Błędy',
         'connection_error_label': '❌ Błąd połączenia',
-        
+
         // Modals - New
         'btn_cancel_modal': 'Anuluj',
         'edit_product_title': '✏️ Edytuj Produkt',
@@ -285,7 +285,7 @@ const TRANSLATIONS = {
         // Operations
         'btn_generator': '🖨️ QR GENERATOR',
         'btn_admin': '⚙️ ADMIN PANEL',
-        'btn_machines': '⚙️ MACHINES',
+        'btn_machines': '🔑 PIN Setup',
         'btn_user': '👥 USER',
         'btn_logout': 'LOGOUT',
 

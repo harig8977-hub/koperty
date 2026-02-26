@@ -1063,7 +1063,7 @@
                             data-i18n="btn_admin">⚙️ PANEL ADMINA</button>
                         <button id="btn-machine-panel" class="hidden btn btn-blue" onclick="toggleMachinePanel()"
                             style="width: 140px; height: 45px; font-size: 0.75rem; padding: 0; margin: 0; line-height: 1.2; flex-direction: column; gap: 2px; text-align: center;"
-                            data-i18n="btn_machines">⚙️ MASZYNY</button>
+                            data-i18n="btn_machines">🔑 PIN Setup</button>
                         <button onclick="logoutWarehouse()" class="btn btn-red"
                             style="width: 140px; height: 45px; font-size: 0.75rem; padding: 0; margin: 0; line-height: 1.2; flex-direction: column; gap: 2px; text-align: center;"
                             data-i18n="btn_logout">WYLOGUJ</button>
@@ -1545,7 +1545,6 @@
                                     <select id="new-user-role"
                                         style="width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">
                                         <option value="WAREHOUSE">Magazynier</option>
-                                        <option value="OPERATOR">Operator</option>
                                         <option value="ADMIN">Administrator</option>
                                     </select>
                                 </div>
@@ -1553,9 +1552,9 @@
                                     <label style="color: #888; font-size: 0.8rem;">Zmiana</label>
                                     <select id="new-user-shift"
                                         style="width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">
-                                        <option value="1">Zmiana 1</option>
-                                        <option value="2">Zmiana 2</option>
-                                        <option value="3">Zmiana 3</option>
+                                        <option value="A">Shift A</option>
+                                        <option value="B">Shift B</option>
+                                        <option value="DAY">Day shift</option>
                                     </select>
                                 </div>
                                 <button onclick="addNewUser()" class="btn btn-green"
@@ -3299,25 +3298,37 @@
 
 
         async function activateSlot(slotId) {
-            // Symulacja załadowania koperty do slotu (losowanie)
-            // Najpierw odśwież dane z API aby mieć aktualne statusy
-            await initEnvelopesFromAPI();
-
-            // Znajdź input i wpisz do niego losową wartość
-            const available = ENVELOPES_DB.filter(e => e.status === "MAGAZYN");
-
-            if (available.length === 0) {
-                alert(t('no_envelopes_warehouse'));
-                return;
+            // Wyczyść bufor schowka przed skanowaniem
+            lastProcessedClipboardContent = null;
+            try {
+                await navigator.clipboard.writeText('');
+                console.log("🧹 Schowek wyczyszczony przed skanowaniem (slot " + slotId + ")");
+            } catch (e) {
+                console.debug('Nie udało się wyczyścić schowka:', e);
             }
 
-            const randomEnv = available[Math.floor(Math.random() * available.length)];
-            const input = document.getElementById('slot-input-' + slotId);
-
-            if (input) {
-                input.value = randomEnv.id;
-                loadEnvelopeForSlot(slotId); // Wywołaj normalne ładowanie
+            // Sprawdź schowek
+            try {
+                const text = await navigator.clipboard.readText();
+                if (text && text.trim().length > 0) {
+                    const cleanText = text.trim();
+                    console.log("📋 Pobrano ze schowka dla slotu " + slotId + ":", cleanText);
+                    lastProcessedClipboardContent = cleanText;
+                    const input = document.getElementById('slot-input-' + slotId);
+                    if (input) {
+                        input.value = cleanText;
+                        loadEnvelopeForSlot(slotId);
+                    }
+                    return;
+                }
+            } catch (err) {
+                console.debug('Schowek niedostępny:', err);
             }
+
+            // Jeśli schowek pusty — odpal kamerę
+            currentScanType = 'slot';
+            currentScanSlot = slotId;
+            await openScanner('slot');
         }
 
         async function releaseSlot(slotId, envelopeId) {
@@ -5253,6 +5264,7 @@
 
         let html5QrcodeScanner = null;
         let currentScanType = null;
+        let currentScanSlot = null;
         let scannerState = 'idle'; // idle | starting | running | stopping
         let scannerRunToken = 0;
         const scannerTelemetry = {
@@ -5289,18 +5301,23 @@
             currentScanType = type;
             if (manualValue) { processScanResult(manualValue, type, true); return; }
 
+            // Wyczyść bufor schowka przed skanowaniem
+            lastProcessedClipboardContent = null;
+            try {
+                await navigator.clipboard.writeText('');
+                console.log("🧹 Schowek wyczyszczony przed skanowaniem");
+            } catch (e) {
+                console.debug('Nie udało się wyczyścić schowka:', e);
+            }
+
             try {
                 const text = await navigator.clipboard.readText();
                 if (text && text.trim().length > 0) {
                     const cleanText = text.trim();
-                    // Sprawdź czy to ten sam kod co ostatnio
-                    if (cleanText !== lastProcessedClipboardContent) {
-                        console.log("📋 Pobrano ze schowka:", cleanText);
-                        lastProcessedClipboardContent = cleanText; // "Zużyj" dane
-                        processScanResult(cleanText, type, false, true);
-                        return;
-                    }
-                    console.log("♻️ Schowek pominięty (dane już przetworzone):", cleanText);
+                    console.log("📋 Pobrano ze schowka:", cleanText);
+                    lastProcessedClipboardContent = cleanText;
+                    processScanResult(cleanText, type, false, true);
+                    return;
                 }
             } catch (err) {
                 console.debug('Schowek niedostępny:', err);
@@ -5482,6 +5499,14 @@
                 // Wpisz kod w pole i załaduj
                 document.getElementById('envelope-input').value = validatedCode;
                 loadEnvelope(validatedCode);
+            } else if (type === 'slot' && currentScanSlot) {
+                // Obsługa skanowania w trybie PALLETIZING (sloty)
+                const input = document.getElementById('slot-input-' + currentScanSlot);
+                if (input) {
+                    input.value = validatedCode;
+                    loadEnvelopeForSlot(currentScanSlot);
+                }
+                currentScanSlot = null;
             }
         }
 
