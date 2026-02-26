@@ -1273,21 +1273,30 @@ def bulk_add_search_list():
     """Dodaje wiele kopert naraz (text/plain - jedna koperta na linię)."""
     user_id = request.args.get('user_id')
     
+    # Pomocnicza funkcja do wyciągania ID (tylko pierwsze słowo)
+    def extract_id(text):
+        if not text or not str(text).strip(): return None
+        return str(text).strip().split()[0]
+    
     # Obsługa tekstu (jedna koperta na linię)
     if request.content_type == 'text/plain':
         text = request.get_data(as_text=True)
-        envelope_ids = [line.strip() for line in text.split('\n') if line.strip()]
+        envelope_ids = []
+        for line in text.split('\n'):
+            eid = extract_id(line)
+            if eid: envelope_ids.append(eid)
         
         result = db.bulk_add_to_search_list(envelope_ids, user_id)
         return jsonify(result)
     
     # Obsługa JSON
     data = request.get_json()
-    envelope_ids = data.get('envelope_ids', [])
+    raw_ids = data.get('envelope_ids', [])
     
-    if not envelope_ids:
+    if not raw_ids:
         return jsonify({"error": "envelope_ids (array) jest wymagane"}), 400
     
+    envelope_ids = [extract_id(eid) for eid in raw_ids if extract_id(eid)]
     result = db.bulk_add_to_search_list(envelope_ids, user_id)
     return jsonify(result)
 
@@ -1311,7 +1320,11 @@ def import_search_list_csv():
         csv_reader = csv.reader(StringIO(content))
         for row in csv_reader:
             if row and row[0].strip():
-                envelope_ids.append(row[0].strip())
+                # Bierzemy tylko pierwsze słowo (w razie gdy na liście Excela ktoś kopiuje całość)
+                eid = str(row[0]).strip().split()[0]
+                # Ignorujmy nagłówki typu "Spec"
+                if eid.lower() != 'spec':
+                    envelope_ids.append(eid)
         
         result = db.bulk_add_to_search_list(envelope_ids, user_id)
         return jsonify(result)
@@ -1336,7 +1349,9 @@ def import_search_list_excel():
         envelope_ids = []
         for row in sheet.iter_rows(min_row=1, values_only=True):
             if row and row[0]:
-                envelope_ids.append(str(row[0]).strip())
+                eid = str(row[0]).strip().split()[0]
+                if eid.lower() != 'spec':
+                    envelope_ids.append(eid)
         
         result = db.bulk_add_to_search_list(envelope_ids, user_id)
         return jsonify(result)
