@@ -4588,8 +4588,9 @@
                 return;
             }
 
-            // Pobierz z API
-            const matches = await searchEnvelopesAPI(query);
+            // Pobierz z API — dla wydania (out) filtruj tylko koperty na magazynie
+            const status = (type === 'out') ? 'MAGAZYN' : null;
+            const matches = await searchEnvelopesAPI(query, status);
 
             if (matches.length === 0) {
                 hintsContainer.style.display = 'none';
