@@ -1484,7 +1484,7 @@
                         </div>
                     </div>
 
-                    <!-- PANEL ZARZĄDZANIA MASZYNAMI (UKRYTY) -->
+                    <!-- PANEL ZARZĄDZANIA MASZYNAMI + UŻYTKOWNIKAMI (UKRYTY) -->
                     <div id="machine-management-panel" class="hidden"
                         style="flex: 1; padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 20px; overflow-y: auto;">
 
@@ -1517,6 +1517,62 @@
                                 style="flex: 1; background: #1a1a1a; border-radius: 6px; padding: 10px; overflow-y: auto; border: 1px solid #333; max-height: 500px;">
                                 <div style="color: #555; text-align: center; margin-top: 20px;">
                                     Ładowanie maszyn...
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- DODAWANIE UŻYTKOWNIKA -->
+                        <div style="background: #252525; padding: 20px; border-radius: 10px; border: 1px solid #333;">
+                            <h3 style="margin-top: 0; color: var(--accent-green);">👤 DODAJ UŻYTKOWNIKA</h3>
+                            <div style="display: flex; flex-direction: column; gap: 12px;">
+                                <div>
+                                    <label style="color: #888; font-size: 0.8rem;">Nazwa użytkownika</label>
+                                    <input id="new-user-username" type="text" placeholder="np. jan_kowalski"
+                                        style="width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">
+                                </div>
+                                <div>
+                                    <label style="color: #888; font-size: 0.8rem;">Imię i nazwisko</label>
+                                    <input id="new-user-fullname" type="text" placeholder="np. Jan Kowalski"
+                                        style="width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">
+                                </div>
+                                <div>
+                                    <label style="color: #888; font-size: 0.8rem;">PIN (4 cyfry)</label>
+                                    <input id="new-user-pin" type="text" placeholder="1234" maxlength="4"
+                                        style="width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">
+                                </div>
+                                <div>
+                                    <label style="color: #888; font-size: 0.8rem;">Rola</label>
+                                    <select id="new-user-role"
+                                        style="width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">
+                                        <option value="WAREHOUSE">Magazynier</option>
+                                        <option value="OPERATOR">Operator</option>
+                                        <option value="ADMIN">Administrator</option>
+                                    </select>
+                                </div>
+                                <div>
+                                    <label style="color: #888; font-size: 0.8rem;">Zmiana</label>
+                                    <select id="new-user-shift"
+                                        style="width: 100%; padding: 10px; background: #333; border: 1px solid #555; color: #fff; border-radius: 4px;">
+                                        <option value="1">Zmiana 1</option>
+                                        <option value="2">Zmiana 2</option>
+                                        <option value="3">Zmiana 3</option>
+                                    </select>
+                                </div>
+                                <button onclick="addNewUser()" class="btn btn-green"
+                                    style="padding: 12px; font-weight: bold; margin-top: 10px;">
+                                    DODAJ UŻYTKOWNIKA
+                                </button>
+                            </div>
+                        </div>
+
+                        <!-- LISTA UŻYTKOWNIKÓW -->
+                        <div
+                            style="background: #252525; padding: 20px; border-radius: 10px; border: 1px solid #333; display: flex; flex-direction: column;">
+                            <h3 style="margin-top: 0; color: var(--accent-green);">📋 LISTA UŻYTKOWNIKÓW</h3>
+                            <div id="users-list"
+                                style="flex: 1; background: #1a1a1a; border-radius: 6px; padding: 10px; overflow-y: auto; border: 1px solid #333; max-height: 500px;">
+                                <div style="color: #555; text-align: center; margin-top: 20px;">
+                                    Ładowanie użytkowników...
                                 </div>
                             </div>
                         </div>
@@ -3648,6 +3704,7 @@
                 adminPanel.classList.add('hidden');
                 normalPanel.classList.add('hidden');
                 loadMachinesAdminList();
+                loadUsersAdminList();
             } else {
                 // Ukryj panel maszyn, pokaż normalny
                 machinePanel.classList.add('hidden');
@@ -4113,6 +4170,187 @@
             } catch (error) {
                 console.error('Error adding machine:', error);
                 alert(t('error_network'));
+            }
+        }
+
+        // --- ZARZĄDZANIE UŻYTKOWNIKAMI ---
+        async function loadUsersAdminList() {
+            try {
+                const response = await fetch(`${API_BASE}/users`);
+                const users = await response.json();
+                const listContainer = document.getElementById('users-list');
+
+                if (!users || users.length === 0) {
+                    listContainer.innerHTML = '<div style="color: #666; text-align: center; padding: 20px;">Brak użytkowników</div>';
+                    return;
+                }
+
+                let html = '';
+                users.forEach(user => {
+                    const roleColors = {
+                        'ADMIN': { bg: '#ff9100', text: '#fff' },
+                        'WAREHOUSE': { bg: '#2196F3', text: '#fff' },
+                        'OPERATOR': { bg: '#4CAF50', text: '#fff' }
+                    };
+                    const rc = roleColors[user.role] || { bg: '#666', text: '#fff' };
+                    const roleLabel = user.role === 'WAREHOUSE' ? 'Magazynier' : (user.role === 'ADMIN' ? 'Admin' : 'Operator');
+                    const activeTag = user.is_active
+                        ? '<span style="background: #2a5; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 0.7rem; margin-left: 5px;">Aktywny</span>'
+                        : '<span style="background: #d32f2f; color: #fff; padding: 2px 8px; border-radius: 3px; font-size: 0.7rem; margin-left: 5px;">Nieaktywny</span>';
+
+                    const borderColor = user.role === 'ADMIN' ? '#ff9100' : (user.role === 'WAREHOUSE' ? '#2196F3' : '#4CAF50');
+
+                    html += `
+                        <div style="background: #252525; padding: 15px; margin-bottom: 10px; border-radius: 6px; border-left: 3px solid ${borderColor};">
+                            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 8px;">
+                                <div style="flex: 1;">
+                                    <div style="font-weight: bold; color: #fff; font-size: 1rem; margin-bottom: 4px;">
+                                        ${user.full_name || user.username}
+                                        ${activeTag}
+                                    </div>
+                                    <div style="color: #888; font-size: 0.8rem;">Login: ${user.username} • Zmiana: ${user.shift || '-'}</div>
+                                    <div style="margin-top: 4px;">
+                                        <span style="background: ${rc.bg}; color: ${rc.text}; padding: 2px 10px; border-radius: 3px; font-size: 0.75rem; font-weight: bold;">${roleLabel}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 5px; margin-top: 10px;">
+                                <button onclick="changeUserPin(${user.id}, '${(user.full_name || user.username).replace(/'/g, "\\\'")}')" class="btn" style="flex: 1; background: #555; color: #fff; padding: 8px; font-size: 0.8rem;">
+                                    🔑 PIN
+                                </button>
+                                <button onclick="changeUserRole(${user.id}, '${user.role}', '${(user.full_name || user.username).replace(/'/g, "\\\'")}')" class="btn" style="flex: 1; background: #444; color: #fff; padding: 8px; font-size: 0.8rem;">
+                                    🏷️ Rola
+                                </button>
+                                <button onclick="deleteUser(${user.id}, '${(user.full_name || user.username).replace(/'/g, "\\\'")}')" class="btn" style="background: #661111; color: #ffaaaa; padding: 8px; font-size: 0.8rem;">
+                                    🗑️
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+
+                listContainer.innerHTML = html;
+            } catch (error) {
+                console.error('Error loading users:', error);
+                document.getElementById('users-list').innerHTML = '<div style="color: #ff5555; text-align: center; padding: 20px;">Błąd ładowania użytkowników</div>';
+            }
+        }
+
+        async function addNewUser() {
+            const username = document.getElementById('new-user-username').value.trim();
+            const fullName = document.getElementById('new-user-fullname').value.trim();
+            const pin = document.getElementById('new-user-pin').value.trim();
+            const role = document.getElementById('new-user-role').value;
+            const shift = document.getElementById('new-user-shift').value;
+
+            if (!username || !pin) {
+                alert('Uzupełnij nazwę użytkownika i PIN.');
+                return;
+            }
+
+            if (!/^\d{4}$/.test(pin)) {
+                alert('PIN musi składać się z 4 cyfr.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/users`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ username, pin, role, full_name: fullName, shift })
+                });
+                const result = await response.json();
+
+                if (response.ok) {
+                    alert(`✅ Dodano użytkownika: ${fullName || username} (${role})`);
+                    document.getElementById('new-user-username').value = '';
+                    document.getElementById('new-user-fullname').value = '';
+                    document.getElementById('new-user-pin').value = '';
+                    await loadUsersAdminList();
+                } else {
+                    alert(`❌ Błąd: ${result.error || 'Nie udało się dodać użytkownika'}`);
+                }
+            } catch (error) {
+                console.error('Error adding user:', error);
+                alert('❌ Błąd połączenia z serwerem');
+            }
+        }
+
+        async function changeUserPin(userId, userName) {
+            const newPin = prompt(`Nowy PIN dla ${userName} (4 cyfry):`);
+            if (newPin === null) return;
+            if (!/^\d{4}$/.test(newPin.trim())) {
+                alert('PIN musi składać się z 4 cyfr.');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/users/${userId}/change-pin`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ new_pin: newPin.trim() })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert(`✅ PIN zmieniony dla ${userName}`);
+                } else {
+                    alert(`❌ Błąd: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Error changing user PIN:', error);
+                alert('❌ Błąd połączenia z serwerem');
+            }
+        }
+
+        async function changeUserRole(userId, currentRole, userName) {
+            const roles = ['OPERATOR', 'WAREHOUSE', 'ADMIN'];
+            const roleLabels = { 'OPERATOR': 'Operator', 'WAREHOUSE': 'Magazynier', 'ADMIN': 'Administrator' };
+            const newRole = prompt(`Zmień rolę dla ${userName}\nAktualna: ${roleLabels[currentRole]}\n\nWpisz nową rolę:\n- OPERATOR\n- WAREHOUSE\n- ADMIN`);
+            if (newRole === null) return;
+            const role = newRole.trim().toUpperCase();
+            if (!roles.includes(role)) {
+                alert('Nieprawidłowa rola. Dostępne: OPERATOR, WAREHOUSE, ADMIN');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/users/${userId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ role })
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert(`✅ Rola zmieniona na ${roleLabels[role]} dla ${userName}`);
+                    await loadUsersAdminList();
+                } else {
+                    alert(`❌ Błąd: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Error changing user role:', error);
+                alert('❌ Błąd połączenia z serwerem');
+            }
+        }
+
+        async function deleteUser(userId, userName) {
+            if (!confirm(`⚠️ Czy na pewno chcesz usunąć użytkownika:\n${userName}?`)) {
+                return;
+            }
+
+            try {
+                const response = await fetch(`${API_BASE}/users/${userId}`, {
+                    method: 'DELETE'
+                });
+                const result = await response.json();
+                if (response.ok) {
+                    alert(`✅ Użytkownik ${userName} został usunięty`);
+                    await loadUsersAdminList();
+                } else {
+                    alert(`❌ Błąd: ${result.error}`);
+                }
+            } catch (error) {
+                console.error('Error deleting user:', error);
+                alert('❌ Błąd połączenia z serwerem');
             }
         }
 
