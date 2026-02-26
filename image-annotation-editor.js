@@ -1,6 +1,11 @@
 (function () {
   const DEFAULT_STROKE = '#ff9100';
   const DEFAULT_TEXT_COLOR = '#ffffff';
+  const TEXT_COLORS = {
+    white: '#ffffff',
+    black: '#000000',
+    red: '#ff0000',
+  };
 
   const state = {
     modal: null,
@@ -19,6 +24,7 @@
     historyIndex: -1,
     options: null,
     imageUrl: null,
+    currentTextColor: DEFAULT_TEXT_COLOR,
   };
 
   function ensureModal() {
@@ -29,7 +35,7 @@
     modal.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.85);display:none;z-index:4000;align-items:center;justify-content:center;padding:20px;box-sizing:border-box;';
 
     modal.innerHTML = `
-      <div style="width:min(1200px, 96vw);height:min(90vh, 900px);background:#1a1a1a;border:2px solid #444;border-radius:12px;display:flex;flex-direction:column;">
+      <div style="width:min(1600px, 96vw);height:min(95vh, 1200px);background:#1a1a1a;border:2px solid #444;border-radius:12px;display:flex;flex-direction:column;">
         <div style="padding:10px 14px;border-bottom:1px solid #333;display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
           <strong id="note-image-editor-title" style="margin-right:12px;color:#fff;">Edycja zdjęcia</strong>
           <button data-tool="select" style="padding:6px 10px;">Select</button>
@@ -37,6 +43,12 @@
           <button data-tool="arrow" style="padding:6px 10px;">Arrow</button>
           <button data-tool="rect" style="padding:6px 10px;">Rect</button>
           <button data-tool="circle" style="padding:6px 10px;">Circle</button>
+          <span style="width:1px;height:24px;background:#555;margin:0 4px;"></span>
+          <span style="color:#888;font-size:0.8rem;">Kolor:</span>
+          <button data-text-color="white" title="Biały" style="padding:4px 10px;background:#ffffff;color:#000;font-weight:bold;border:2px solid #2979ff;border-radius:6px;">A</button>
+          <button data-text-color="black" title="Czarny" style="padding:4px 10px;background:#000000;color:#fff;font-weight:bold;border:2px solid #555;border-radius:6px;">A</button>
+          <button data-text-color="red" title="Czerwony" style="padding:4px 10px;background:#ff0000;color:#fff;font-weight:bold;border:2px solid #555;border-radius:6px;">A</button>
+          <span style="width:1px;height:24px;background:#555;margin:0 4px;"></span>
           <button id="note-image-editor-delete" style="padding:6px 10px;background:#442222;color:#fff;">Delete</button>
           <button id="note-image-editor-undo" style="padding:6px 10px;">Undo</button>
           <div style="margin-left:auto;display:flex;gap:8px;">
@@ -44,7 +56,7 @@
             <button id="note-image-editor-save" style="padding:6px 12px;background:#00e676;color:#000;font-weight:bold;">Zapisz adnotacje</button>
           </div>
         </div>
-        <div id="note-image-editor-stage" style="flex:1;min-height:0;overflow:hidden;background:#111;"></div>
+        <div id="note-image-editor-stage" style="flex:1;min-height:0;overflow:auto;background:#111;">
       </div>
     `;
 
@@ -71,6 +83,19 @@
     modal.querySelector('#note-image-editor-undo').addEventListener('click', undo);
     state.saveBtn.addEventListener('click', saveAndClose);
     state.closeBtn.addEventListener('click', close);
+
+    // Color picker buttons
+    modal.querySelectorAll('[data-text-color]').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const colorName = btn.dataset.textColor;
+        state.currentTextColor = TEXT_COLORS[colorName] || DEFAULT_TEXT_COLOR;
+        // Update border highlight
+        modal.querySelectorAll('[data-text-color]').forEach((b) => {
+          b.style.border = '2px solid #555';
+        });
+        btn.style.border = '2px solid #2979ff';
+      });
+    });
   }
 
   function setTool(toolName) {
@@ -285,7 +310,7 @@
           x: pointer.x,
           y: pointer.y,
           text: value,
-          fill: DEFAULT_TEXT_COLOR,
+          fill: state.currentTextColor,
           fontSize: 22,
           fontStyle: 'bold',
           draggable: true,
@@ -422,7 +447,7 @@
     const containerRect = state.stageContainer.getBoundingClientRect();
     const maxW = Math.max(320, containerRect.width - 20);
     const maxH = Math.max(240, containerRect.height - 20);
-    const ratio = Math.min(maxW / img.width, maxH / img.height, 1.5);
+    const ratio = Math.min(maxW / img.width, maxH / img.height, 4);
     const stageWidth = Math.max(320, Math.floor(img.width * ratio));
     const stageHeight = Math.max(240, Math.floor(img.height * ratio));
 
